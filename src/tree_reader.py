@@ -3068,6 +3068,18 @@ class Prediction:
                 predicted_encoding)
         return predicted_factors
 
+    def compare_sample_clusters(self,other):
+
+        self_samples = self.sample_clusters()
+        other_samples = other.sample_clusters()
+
+        plt.figure()
+        plt.hist(self_samples,alpha=.5,density=True,label="Young",bins=np.arange(len(forest.sample_clusters)+1))
+        plt.hist(other_samples,alpha=.5,density=True,label="Old",bins=np.arange(len(forest.sample_clusters)+1))
+        plt.legend()
+        plt.show()
+        pass
+
     def compare_factors(self, other, no_plot=False,log=True, bins=20):
 
         from scipy.stats import entropy
@@ -3103,12 +3115,13 @@ class Prediction:
 
                 lin_min = np.min([np.min(own_log_prob),np.min(other_log_prob)])
 
-                plt.figure()
+                plt.figure(figsize=(5,5))
                 plt.title(f"{self.forest.split_clusters[i].name()} Comparison")
-                plt.scatter(own_log_prob,other_log_prob,s=3)
+                plt.scatter(own_log_prob,other_log_prob,c=np.arange(-1, 1, bin_interval)[:-1],cmap='seismic')
                 plt.plot([0,lin_min],[0,lin_min],color='red',alpha=.5)
                 plt.xlabel("Factor Frequency, Self (Log Probability)")
                 plt.ylabel("Factor Frequency, Other (Log Probability)")
+                plt.colorbar(label="Factor Value")
                 plt.show()
 
         return symmetric_entropy
@@ -4504,25 +4517,25 @@ def js_wrap(name, content):
     return f"<script> let {name} = {content};</script>"
 
 
-def fast_knn(elements, k, neighborhood_fraction=.01, metric='cosine'):
+def fast_knn(elements, k, neighborhood_fraction=.01, metric='euclidean'):
 
     nearest_neighbors = np.zeros((elements.shape[0], k), dtype=int)
-    guarantee = np.zeros(elements.shape[0], dtype=bool)
+    complete = np.zeros(elements.shape[0], dtype=bool)
 
     neighborhood_size = max(
         k * 3, int(elements.shape[0] * neighborhood_fraction))
     anchor_loops = 0
 
-    while np.sum(guarantee) < guarantee.shape[0]:
+    while np.sum(complete) < complete.shape[0]:
 
         anchor_loops += 1
 
-        available = np.arange(guarantee.shape[0])[~guarantee]
+        available = np.arange(complete.shape[0])[~complete]
         np.random.shuffle(available)
-        anchors = available[:int(guarantee.shape[0] / neighborhood_size) * 3]
+        anchors = available[:int(complete.shape[0] / neighborhood_size) * 3]
 
         for anchor in anchors:
-            print(f"Complete:{np.sum(guarantee)}\r", end='')
+#             print(f"Anchor Loop: {anchor_loops},Complete:{np.sum(complete)}\r", end='')
 
             anchor_distances = cdist(elements[anchor].reshape(
                 1, -1), elements, metric=metric)[0]
@@ -4536,35 +4549,41 @@ def fast_knn(elements, k, neighborhood_fraction=.01, metric='cosine'):
             local_distances[np.identity(
                 local_distances.shape[0], dtype=bool)] = float('inf')
 
-            anchor_distances = local_distances[anchor_local]
+            anchor_to_worst = np.max(anchor_distances)
 
             for i, sample in enumerate(neighborhood):
-                if not guarantee[sample]:
+                if not complete[sample]:
 
+                    # First select the indices in the neighborhood that are knn
                     best_neighbors_local = np.argpartition(
                         local_distances[i], k)
-                    best_neighbors = neighborhood[best_neighbors_local[:k]]
 
-                    worst_best_local = best_neighbors_local[k]
-                    worst_best_local_distance = local_distances[i,
-                                                                worst_best_local]
-
-                    worst_local = np.argmax(local_distances[i])
-                    anchor_to_worst = local_distances[anchor_local,
-                                                      worst_local]
-
+                    # Next find the worst neighbor among the knn observed
+                    best_worst_local = best_neighbors_local[np.argmax(local_distances[i][best_neighbors_local[:k]])]
+                    # And store the worst distance among the local knn
+                    best_worst_distance = local_distances[i,best_worst_local]
+                    # Find the distance of the anchor to the central element
                     anchor_distance = local_distances[anchor_local, i]
 
+                    # By the triangle inequality the closest any element outside the neighborhood
+                    # can be to element we are examining is the criterion distance:
                     criterion_distance = anchor_to_worst - anchor_distance
 
-                    if worst_best_local_distance <= criterion_distance:
+                    # Therefore if the criterion distance is greater than the best worst distance, the local knn
+                    # is also the best global knn
+
+                    if best_worst_distance <= criterion_distance:
                         continue
                     else:
+                        # Finally translate the local best knn to the global indices
+                        best_neighbors = neighborhood[best_neighbors_local[:k]]
+
                         nearest_neighbors[sample] = best_neighbors
-                        guarantee[sample] = True
+                        complete[sample] = True
     print("\n")
 
     return nearest_neighbors
+
 
 
 def double_fast_knn(elements1, elements2, k, neighborhood_fraction=.01, metric='cosine'):
@@ -4573,28 +4592,23 @@ def double_fast_knn(elements1, elements2, k, neighborhood_fraction=.01, metric='
         raise Exception("Average metric knn inputs must be same size")
 
     nearest_neighbors = np.zeros((elements1.shape[0], k), dtype=int)
-    guarantee = np.zeros(elements1.shape[0], dtype=bool)
+    complete = np.zeros(elements1.shape[0], dtype=bool)
 
     neighborhood_size = max(
         k * 3, int(elements1.shape[0] * neighborhood_fraction))
     anchor_loops = 0
     # failed_counter = 0
 
-    while np.sum(guarantee) < guarantee.shape[0]:
-
-        # print("Anchor loop")
-        # print(f"Failed counter:{failed_counter}")
-        # print("\n")
+    while np.sum(complete) < complete.shape[0]:
 
         anchor_loops += 1
-        # neighborhood_size += max(k*3,int(elements1.shape[0] * neighborhood_fraction))
 
-        available = np.arange(guarantee.shape[0])[~guarantee]
+        available = np.arange(complete.shape[0])[~complete]
         np.random.shuffle(available)
-        anchors = available[:int(guarantee.shape[0] / neighborhood_size) * 3]
+        anchors = available[:int(complete.shape[0] / neighborhood_size) * 3]
 
         for anchor in anchors:
-            print(f"Complete:{np.sum(guarantee)}\r", end='')
+            print(f"Complete:{np.sum(complete)}\r", end='')
 
             ad_1 = cdist(elements1[anchor].reshape(
                 1, -1), elements1, metric=metric)[0]
@@ -4621,7 +4635,7 @@ def double_fast_knn(elements1, elements2, k, neighborhood_fraction=.01, metric='
     #         print(local_distances)
 
             for i, sample in enumerate(neighborhood):
-                if not guarantee[sample]:
+                if not complete[sample]:
 
                     #                 print(f"sample:{sample}")
 
@@ -4651,7 +4665,7 @@ def double_fast_knn(elements1, elements2, k, neighborhood_fraction=.01, metric='
                         continue
                     else:
                         nearest_neighbors[sample] = best_neighbors
-                        guarantee[sample] = True
+                        complete[sample] = True
 
     print("\n")
 
