@@ -231,11 +231,11 @@ class Node:
         return residuals
 
     def squared_residual_sum(self):
-        if hasattr(self,'srs_cache'):
+        if hasattr(self, 'srs_cache'):
             return self.srs_cache
         else:
-            squared_residuals = np.power(self.mean_residuals(),2)
-            srs = np.sum(squared_residuals,axis=0)
+            squared_residuals = np.power(self.mean_residuals(), 2)
+            srs = np.sum(squared_residuals, axis=0)
             if self.cache:
                 self.srs_cache = srs
             return srs
@@ -273,8 +273,9 @@ class Node:
             parent_predictions = self.parent.means()
         else:
             parent_predictions = self.means()
-        self_error = np.sum(np.power(counts - self_predictions,2),axis=0) + 1
-        parent_error = np.sum(np.power(counts - parent_predictions,2),axis=0) + 1
+        self_error = np.sum(np.power(counts - self_predictions, 2), axis=0) + 1
+        parent_error = np.sum(
+            np.power(counts - parent_predictions, 2), axis=0) + 1
 
         return self_error / parent_error
 
@@ -1178,6 +1179,7 @@ class Forest:
 ########################################################################
 ########################################################################
 
+
     def absolute_gain_matrix(self, nodes):
         gains = np.zeros((len(self.output_features), len(nodes)))
         for i, node in enumerate(nodes):
@@ -1190,10 +1192,10 @@ class Forest:
             gains[:, i] = node.local_gains()
         return gains
 
-    def error_ratio_matrix(self,nodes):
-        ratios = np.zeros((len(self.output_features),len(nodes)))
-        for i,node in enumerate(nodes):
-            ratios[:,i] = node.mean_error_ratio()
+    def error_ratio_matrix(self, nodes):
+        ratios = np.zeros((len(self.output_features), len(nodes)))
+        for i, node in enumerate(nodes):
+            ratios[:, i] = node.mean_error_ratio()
         return ratios
 
     def additive_matrix(self, nodes):
@@ -1592,7 +1594,6 @@ class Forest:
 
 ########################################################################
 ########################################################################
-
 
     def split_labels(self, depth=3):
         nodes = self.nodes(depth=depth)
@@ -2073,6 +2074,7 @@ class Forest:
     #
     #     return cell_sort,leaf_sort,self.ouput_counts
 
+
     def plot_sample_clusters(self, colorize=True, label=True):
         # if not hasattr(self,'leaf_clusters'):
         #     print("Warning, leaf clusters not detected")
@@ -2390,7 +2392,6 @@ class Forest:
 ########################################################################
 ########################################################################
 
-
     def split_cluster_transition_matrix(self, depth=3):
 
         nodes = np.array(self.nodes(depth=depth))
@@ -2644,7 +2645,6 @@ class Forest:
 #########################################################
 # HTML Visualization methods
 #########################################################
-
 
     def html_directory(self):
 
@@ -3068,19 +3068,21 @@ class Prediction:
                 predicted_encoding)
         return predicted_factors
 
-    def compare_sample_clusters(self,other):
+    def compare_sample_clusters(self, other):
 
         self_samples = self.sample_clusters()
         other_samples = other.sample_clusters()
 
         plt.figure()
-        plt.hist(self_samples,alpha=.5,density=True,label="Young",bins=np.arange(len(forest.sample_clusters)+1))
-        plt.hist(other_samples,alpha=.5,density=True,label="Old",bins=np.arange(len(forest.sample_clusters)+1))
+        plt.hist(self_samples, alpha=.5, density=True, label="Young",
+                 bins=np.arange(len(forest.sample_clusters) + 1))
+        plt.hist(other_samples, alpha=.5, density=True, label="Old",
+                 bins=np.arange(len(forest.sample_clusters) + 1))
         plt.legend()
         plt.show()
         pass
 
-    def compare_factors(self, other, no_plot=False,log=True, bins=20):
+    def compare_factors(self, other, no_plot=False, log=True, bins=20):
 
         from scipy.stats import entropy
         from scipy.stats import ks_2samp
@@ -3105,20 +3107,22 @@ class Prediction:
             average_entropy = (forward_entropy + reverse_entropy) / 2
             symmetric_entropy.append(average_entropy)
             print(f"{i} Entropy: {average_entropy}")
-            ks = ks_2samp(own_f,other_f)
+            ks = ks_2samp(own_f, other_f)
             print(f"Kolmogorov-Smirnov: {ks}")
-            mwu = ranksums(own_f,other_f)
+            mwu = ranksums(own_f, other_f)
             print(f"Rank Sum: {mwu}")
             if not no_plot:
                 own_log_prob = np.log(own_hist / np.sum(own_hist))
                 other_log_prob = np.log(other_hist / np.sum(other_hist))
 
-                lin_min = np.min([np.min(own_log_prob),np.min(other_log_prob)])
+                lin_min = np.min(
+                    [np.min(own_log_prob), np.min(other_log_prob)])
 
-                plt.figure(figsize=(5,5))
+                plt.figure(figsize=(5, 5))
                 plt.title(f"{self.forest.split_clusters[i].name()} Comparison")
-                plt.scatter(own_log_prob,other_log_prob,c=np.arange(-1, 1, bin_interval)[:-1],cmap='seismic')
-                plt.plot([0,lin_min],[0,lin_min],color='red',alpha=.5)
+                plt.scatter(own_log_prob, other_log_prob,
+                            c=np.arange(-1, 1, bin_interval)[:-1], cmap='seismic')
+                plt.plot([0, lin_min], [0, lin_min], color='red', alpha=.5)
                 plt.xlabel("Factor Frequency, Self (Log Probability)")
                 plt.ylabel("Factor Frequency, Other (Log Probability)")
                 plt.colorbar(label="Factor Value")
@@ -3202,10 +3206,10 @@ class Prediction:
     def feature_remaining_error(self, truth=None, mode='additive_mean'):
 
         null_square_residuals = np.power(self.null_residuals(truth=truth), 2)
-        null_residual_sum = np.sum(null_square_residuals,axis=0)
+        null_residual_sum = np.sum(null_square_residuals, axis=0)
 
         forest_square_residuals = np.power(self.residuals(truth=truth), 2)
-        predicted_residual_sum = np.sum(forest_square_residuals,axis=0)
+        predicted_residual_sum = np.sum(forest_square_residuals, axis=0)
 
         remaining = predicted_residual_sum / null_residual_sum
 
@@ -3262,7 +3266,6 @@ class Prediction:
 
         else:
             raise Exception(f"Did not recognize mode:{mode}")
-
 
         if not no_plot:
             plt.figure()
@@ -3484,6 +3487,7 @@ class NodeCluster:
 # Consensus tree methods. Kinda weird/hacky. Need to rethink
 ################################################################################
 
+
     def parent_cluster(self):
         try:
             return self.forest.split_clusters[self.forest.reverse_likely_tree[self.id][0]]
@@ -3526,6 +3530,7 @@ class NodeCluster:
 ##############################################################################
 # Feature change methods (eg changes relative to related nodes)
 ##############################################################################
+
 
     def changed_absolute_root(self):
         roots = self.forest.nodes(root=True, depth=0)
@@ -3624,13 +3629,16 @@ class NodeCluster:
 
         absolute = np.abs(scores)
 
-        positive_mean = np.mean(self.forest.mean_matrix(self.nodes),axis=0)
-        absolute_mean = np.mean(self.forest.mean_matrix(self.parents()),axis=0)
+        positive_mean = np.mean(self.forest.mean_matrix(self.nodes), axis=0)
+        absolute_mean = np.mean(
+            self.forest.mean_matrix(self.parents()), axis=0)
         # positive_mean = np.average(sample_matrix, axis=0, weights=positive)
         # absolute_mean = np.average(sample_matrix, axis=0, weights=absolute)
 
-        positive_error = np.dot(np.power(sample_matrix - positive_mean, 2).T, positive)
-        absolute_error = np.dot(np.power(sample_matrix - absolute_mean, 2).T, positive)
+        positive_error = np.dot(
+            np.power(sample_matrix - positive_mean, 2).T, positive)
+        absolute_error = np.dot(
+            np.power(sample_matrix - absolute_mean, 2).T, positive)
 
         print(
             f"Error: P:{positive_error},A:{absolute_error}")
@@ -3883,7 +3891,6 @@ class NodeCluster:
 
         return jsn_dumps(attributes)
 
-
     def top_local(self, n, no_plot=False):
 
         import matplotlib.patheffects as PathEffects
@@ -3896,12 +3903,12 @@ class NodeCluster:
         # important_indices = [
         #     self.forest.truth_dictionary.feature_dictionary[f] for f in important_features]
 
-        error_features,error_ratio = self.error_ratio()
+        error_features, error_ratio = self.error_ratio()
 
         cod = 1 - error_ratio
 
-        important_features = list(error_features[:n*2])
-        important_ratios = list(cod[:n*2])
+        important_features = list(error_features[:n * 2])
+        important_ratios = list(cod[:n * 2])
         important_indices = [
             self.forest.truth_dictionary.feature_dictionary[f] for f in important_features]
 
@@ -3944,12 +3951,12 @@ class NodeCluster:
         # important_indices = [
         #     self.forest.truth_dictionary.feature_dictionary[f] for f in important_features]
 
-        error_features,error_ratio = self.error_ratio()
+        error_features, error_ratio = self.error_ratio()
 
         cod = 1 - error_ratio
 
-        important_features = list(error_features[:n*2])
-        important_ratios = list(cod[:n*2])
+        important_features = list(error_features[:n * 2])
+        important_ratios = list(cod[:n * 2])
         important_indices = [
             self.forest.truth_dictionary.feature_dictionary[f] for f in important_features]
 
@@ -4557,12 +4564,13 @@ def fast_knn(elements, k, neighborhood_fraction=.01, metric='euclidean'):
 
                     # First select the indices in the neighborhood that are knn
                     best_neighbors_local = np.argpartition(
-                        local_distances[i], k+1)
+                        local_distances[i], k + 1)
 
                     # Next find the worst neighbor among the knn observed
-                    best_worst_local = best_neighbors_local[np.argmax(local_distances[i][best_neighbors_local[:k+1]])]
+                    best_worst_local = best_neighbors_local[np.argmax(
+                        local_distances[i][best_neighbors_local[:k + 1]])]
                     # And store the worst distance among the local knn
-                    best_worst_distance = local_distances[i,best_worst_local]
+                    best_worst_distance = local_distances[i, best_worst_local]
                     # Find the distance of the anchor to the central element
                     anchor_distance = local_distances[anchor_local, i]
 
@@ -4583,7 +4591,8 @@ def fast_knn(elements, k, neighborhood_fraction=.01, metric='euclidean'):
                     else:
                         # Before we conclude we must exclude the sample itself from its
                         # k nearest neighbors
-                        best_neighbors_local = [bn for bn in best_neighbors_local[:k+1] if bn !=i]
+                        best_neighbors_local = [
+                            bn for bn in best_neighbors_local[:k + 1] if bn != i]
                         # Finally translate the local best knn to the global indices
                         best_neighbors = neighborhood[best_neighbors_local]
 
@@ -4592,7 +4601,6 @@ def fast_knn(elements, k, neighborhood_fraction=.01, metric='euclidean'):
     print("\n")
 
     return nearest_neighbors
-
 
 
 def double_fast_knn(elements1, elements2, k, neighborhood_fraction=.01, metric='cosine'):
@@ -4644,12 +4652,13 @@ def double_fast_knn(elements1, elements2, k, neighborhood_fraction=.01, metric='
 
                     # First select the indices in the neighborhood that are knn
                     best_neighbors_local = np.argpartition(
-                        local_distances[i], k+1)
+                        local_distances[i], k + 1)
 
                     # Next find the worst neighbor among the knn observed
-                    best_worst_local = best_neighbors_local[np.argmax(local_distances[i][best_neighbors_local[:k+1]])]
+                    best_worst_local = best_neighbors_local[np.argmax(
+                        local_distances[i][best_neighbors_local[:k + 1]])]
                     # And store the worst distance among the local knn
-                    best_worst_distance = local_distances[i,best_worst_local]
+                    best_worst_distance = local_distances[i, best_worst_local]
                     # Find the distance of the anchor to the central element
                     anchor_distance = local_distances[anchor_local, i]
 
@@ -4670,7 +4679,8 @@ def double_fast_knn(elements1, elements2, k, neighborhood_fraction=.01, metric='
                     else:
                         # Before we conclude we must exclude the sample itself from its
                         # k nearest neighbors
-                        best_neighbors_local = [bn for bn in best_neighbors_local[:k+1] if bn !=i]
+                        best_neighbors_local = [
+                            bn for bn in best_neighbors_local[:k + 1] if bn != i]
                         # Finally translate the local best knn to the global indices
                         best_neighbors = neighborhood[best_neighbors_local]
 
