@@ -4519,6 +4519,9 @@ def js_wrap(name, content):
 
 def fast_knn(elements, k, neighborhood_fraction=.01, metric='euclidean'):
 
+    # Finds the indices of k nearest neighbors for each sample in a matrix,
+    # using any of the standard scipy distance metrics.
+
     nearest_neighbors = np.zeros((elements.shape[0], k), dtype=int)
     complete = np.zeros(elements.shape[0], dtype=bool)
 
@@ -4535,7 +4538,7 @@ def fast_knn(elements, k, neighborhood_fraction=.01, metric='euclidean'):
         anchors = available[:int(complete.shape[0] / neighborhood_size) * 3]
 
         for anchor in anchors:
-#             print(f"Anchor Loop: {anchor_loops},Complete:{np.sum(complete)}\r", end='')
+            print(f"Complete:{np.sum(complete)}\r", end='')
 
             anchor_distances = cdist(elements[anchor].reshape(
                 1, -1), elements, metric=metric)[0]
@@ -4546,20 +4549,18 @@ def fast_knn(elements, k, neighborhood_fraction=.01, metric='euclidean'):
 
             local_distances = squareform(
                 pdist(elements[neighborhood], metric=metric))
-            local_distances[np.identity(
-                local_distances.shape[0], dtype=bool)] = float('inf')
 
-            anchor_to_worst = np.max(anchor_distances)
+            anchor_to_worst = np.max(local_distances[anchor_local])
 
             for i, sample in enumerate(neighborhood):
                 if not complete[sample]:
 
                     # First select the indices in the neighborhood that are knn
                     best_neighbors_local = np.argpartition(
-                        local_distances[i], k)
+                        local_distances[i], k+1)
 
                     # Next find the worst neighbor among the knn observed
-                    best_worst_local = best_neighbors_local[np.argmax(local_distances[i][best_neighbors_local[:k]])]
+                    best_worst_local = best_neighbors_local[np.argmax(local_distances[i][best_neighbors_local[:k+1]])]
                     # And store the worst distance among the local knn
                     best_worst_distance = local_distances[i,best_worst_local]
                     # Find the distance of the anchor to the central element
@@ -4569,14 +4570,22 @@ def fast_knn(elements, k, neighborhood_fraction=.01, metric='euclidean'):
                     # can be to element we are examining is the criterion distance:
                     criterion_distance = anchor_to_worst - anchor_distance
 
+#                     if sample == 0:
+#                         print(f"ld:{local_distances[i][best_neighbors_local[:k]]}")
+#                         print(f"bwd:{best_worst_distance}")
+#                         print(f"cd:{criterion_distance}")
+
                     # Therefore if the criterion distance is greater than the best worst distance, the local knn
                     # is also the best global knn
 
-                    if best_worst_distance <= criterion_distance:
+                    if best_worst_distance >= criterion_distance:
                         continue
                     else:
+                        # Before we conclude we must exclude the sample itself from its
+                        # k nearest neighbors
+                        best_neighbors_local = [bn for bn in best_neighbors_local[:k+1] if bn !=i]
                         # Finally translate the local best knn to the global indices
-                        best_neighbors = neighborhood[best_neighbors_local[:k]]
+                        best_neighbors = neighborhood[best_neighbors_local]
 
                         nearest_neighbors[sample] = best_neighbors
                         complete[sample] = True
@@ -4627,46 +4636,46 @@ def double_fast_knn(elements1, elements2, k, neighborhood_fraction=.01, metric='
             ld_1 = squareform(pdist(elements1[neighborhood], metric=metric))
             ld_2 = squareform(pdist(elements2[neighborhood], metric=metric))
             local_distances = (ld_1 + ld_2) / 2
-            local_distances[np.identity(
-                local_distances.shape[0], dtype=bool)] = float('inf')
 
-            anchor_distances = local_distances[anchor_local]
-
-    #         print(local_distances)
+            anchor_to_worst = np.max(local_distances[anchor_local])
 
             for i, sample in enumerate(neighborhood):
                 if not complete[sample]:
 
-                    #                 print(f"sample:{sample}")
-
+                    # First select the indices in the neighborhood that are knn
                     best_neighbors_local = np.argpartition(
-                        local_distances[i], k)
-                    best_neighbors = neighborhood[best_neighbors_local[:k]]
+                        local_distances[i], k+1)
 
-    #                 print(f"best{best_neighbors}")
-
-                    worst_best_local = best_neighbors_local[k]
-                    worst_best_local_distance = local_distances[i,
-                                                                worst_best_local]
-
-                    worst_local = np.argmax(local_distances[i])
-                    anchor_to_worst = local_distances[anchor_local,
-                                                      worst_local]
-
+                    # Next find the worst neighbor among the knn observed
+                    best_worst_local = best_neighbors_local[np.argmax(local_distances[i][best_neighbors_local[:k+1]])]
+                    # And store the worst distance among the local knn
+                    best_worst_distance = local_distances[i,best_worst_local]
+                    # Find the distance of the anchor to the central element
                     anchor_distance = local_distances[anchor_local, i]
 
+                    # By the triangle inequality the closest any element outside the neighborhood
+                    # can be to element we are examining is the criterion distance:
                     criterion_distance = anchor_to_worst - anchor_distance
 
-    #                 print(f"wbl:{worst_best_local_distance}")
-    #                 print(f"cd:{criterion_distance}")
+#                     if sample == 0:
+#                         print(f"ld:{local_distances[i][best_neighbors_local[:k]]}")
+#                         print(f"bwd:{best_worst_distance}")
+#                         print(f"cd:{criterion_distance}")
 
-                    if worst_best_local_distance <= criterion_distance:
-                        # failed_counter += 1
+                    # Therefore if the criterion distance is greater than the best worst distance, the local knn
+                    # is also the best global knn
+
+                    if best_worst_distance >= criterion_distance:
                         continue
                     else:
+                        # Before we conclude we must exclude the sample itself from its
+                        # k nearest neighbors
+                        best_neighbors_local = [bn for bn in best_neighbors_local[:k+1] if bn !=i]
+                        # Finally translate the local best knn to the global indices
+                        best_neighbors = neighborhood[best_neighbors_local]
+
                         nearest_neighbors[sample] = best_neighbors
                         complete[sample] = True
-
     print("\n")
 
     return nearest_neighbors
