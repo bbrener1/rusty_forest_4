@@ -201,6 +201,13 @@ class Node:
             self.mean_cache = means
         return means
 
+    def sample_cluster_means(self):
+
+        labels = self.forest.sample_labels[self.samples]
+        one_hot = np.array([labels == x.id for x in self.forest.sample_clusters])
+        means = np.mean(one_hot,axis=0)
+        return means
+
     def feature_mean(self, feature):
 
         # As above, mean of an individual feature within this node
@@ -1102,6 +1109,9 @@ class Forest:
             raise Exception(f"Mode not recognized:{mode}")
 
         if pca > 0:
+            if pca > encoding.shape[1]:
+                print("WARNING, PCA DIMENSION TOO SMALL, PICKING MINIMUM")
+                pca = np.min([pca,encoding.shape[1]])
             # print(f"debug:{encoding.shape}")
             from sklearn.decomposition import IncrementalPCA
             model = IncrementalPCA(n_components=pca)
@@ -1480,28 +1490,6 @@ class Forest:
         consolidated_predictions = self.mean_matrix(leaves)
         return np.mean(consolidated_predictions, axis=0)
 
-    def predict_sample_cluster(self, sample):
-
-        leaves = self.predict_sample_leaves(sample)
-        cluster_odds = np.array(
-            [len(s.samples()) / self.output.shape[0] for s in self.sample_clusters])
-        cluster_predictions = np.zeros(len(self.sample_clusters))
-        for i, cluster in enumerate(self.sample_clusters):
-            # predictions,weights = self.nodes_weighted_median_predict_feature(leaves,f"sample_cluster_{int(cluster.id)}")
-            # aggregate = np.sum(np.array(predictions) * np.array(weights)) / np.sum(weights)
-            predictions = self.nodes_mean_predict_feature(
-                leaves, f"sample_cluster_{int(cluster.id)}")
-            aggregate = np.mean(predictions)
-            cluster_predictions[i] = aggregate
-        # print(f"Raw:{cluster_predictions}")
-        cluster_predictions /= cluster_odds
-        # print(f"Adjusted:{cluster_predictions}")
-
-        cluster = np.argmax(cluster_predictions)
-        cluster = [self.sample_clusters[i].id for i in cluster]
-
-        return cluster
-
     def predict_sample_leaf_cluster(self, sample):
         leaves = self.predict_sample_leaves(sample)
         leaf_clusters = [l.leaf_cluster for l in leaves]
@@ -1613,10 +1601,6 @@ class Forest:
         self.sample_clusters = clusters
 
         one_hot = np.array([sample_labels == x.id for x in clusters])
-
-        for i, cluster in enumerate(one_hot):
-            self.add_output_feature(
-                cluster, feature_name=f"sample_cluster_{i}")
 
         self.sample_cluster_encoding = one_hot
 
@@ -1870,6 +1854,7 @@ class Forest:
     def interpret_splits(self, override=False, mode='additive_mean', metric='cosine', pca=100, relatives=True, resolution=1, k=5, depth=6, **kwargs):
 
         if pca > len(self.output_features):
+            print("WARNING, PCA DIMENSION GREATER THAN FEATURE DIMENSION, PICKING MINIMUM")
             pca = len(self.output_features)
 
         nodes = np.array(self.nodes(root=True, depth=depth))
@@ -2664,6 +2649,10 @@ class Forest:
 
         # First we'd like to make sure we are operating from scratch in the html directory:
 
+        if n > (self.output.shape[1] / 2):
+            print ("WARNING, PICKED N THAT IS TOO LARGE, SETTING LOWER")
+            n = max(int(self.output.shape[1]/2),1)
+
         if output is None:
             location = self.location()
             html_location = location + "/html/"
@@ -3045,16 +3034,16 @@ class Prediction:
 
         if self.smc is None:
 
-            cluster_odds = np.array(
-                [len(s.samples) / len(self.forest.sample_labels) for s in self.forest.sample_clusters])
-            cluster_features = [self.forest.truth_dictionary.feature_dictionary[f"sample_cluster_{i}"] for i in range(
-                len(self.forest.sample_clusters))]
+            leaf_mask = self.forest.leaf_mask()
+            encoding_prediction = self.node_sample_encoding()[leaf_mask].T
+            leaf_means = np.array([l.sample_cluster_means() for l in self.forest.leaves()])
+            scaling = np.dot(encoding_prediction,
+                             np.ones(leaf_means.shape))
 
-            cluster_predictions = self.mean_prediction()[:, cluster_features]
+            prediction = np.dot(encoding_prediction, leaf_means) / scaling
+            prediction[scaling == 0] = 0
 
-            cluster_predictions = cluster_predictions / cluster_odds
-
-            self.smc = np.argmax(cluster_predictions, axis=1)
+            self.smc = np.argmax(prediction, axis=1)
 
         return self.smc
 
@@ -3074,10 +3063,14 @@ class Prediction:
         other_samples = other.sample_clusters()
 
         plt.figure()
-        plt.hist(self_samples, alpha=.5, density=True, label="Young",
-                 bins=np.arange(len(forest.sample_clusters) + 1))
-        plt.hist(other_samples, alpha=.5, density=True, label="Old",
-                 bins=np.arange(len(forest.sample_clusters) + 1))
+        plt.title("Sample Cluster Frequency, Self vs Other")
+        plt.xlabel("Cluster")
+        plt.ylabel("Frequency")
+        plt.xticks(np.arange(len(self.forest.sample_clusters)))
+        plt.hist(self_samples, alpha=.5, density=True, label="Self",
+                 bins=np.arange(len(self.forest.sample_clusters) + 1))
+        plt.hist(other_samples, alpha=.5, density=True, label="Other",
+                 bins=np.arange(len(self.forest.sample_clusters) + 1))
         plt.legend()
         plt.show()
         pass
@@ -3231,7 +3224,7 @@ class Prediction:
         if mode == 'rank_sum':
             results = [ranksums(self_residuals[:, i], other_residuals[:, i])
                        for i in range(self_residuals.shape[1])]
-        if mode == 'mann_whitney_u':
+        elif mode == 'mann_whitney_u':
             results = [mannwhitneyu(self_residuals[:, i], other_residuals[:, i])
                        for i in range(self_residuals.shape[1])]
         elif mode == 'kolmogorov_smirnov':
@@ -4333,11 +4326,7 @@ def hacked_louvain(knn, resolution=1):
     g = ig.Graph()
     g.add_vertices(knn.shape[0])  # this adds adjacency.shape[0] vertices
     edges = [(s, t) for s in range(knn.shape[0]) for t in knn[s]]
-    # for s, t in enumerate(knn):
-    #     # print(list(zip(np.ones(t.shape) * s, t)))
-    #     if s%100 == 0:
-    #         print(f"Adding edges: {s}\r",end='')
-    #     g.add_edges(list(zip(np.ones(t.shape,dtype=int) * s, t)))
+
     g.add_edges(edges)
 
     if g.vcount() != knn.shape[0]:
