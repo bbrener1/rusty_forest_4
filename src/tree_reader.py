@@ -1,53 +1,52 @@
 # Imports for matplotlib
+from tree_reader_utils import fast_knn, double_fast_knn, hacked_louvain, generate_feature_value_html
+from tree_reader_node import Node, Reduction, Filter
+from tree_reader_prediction import Prediction
+from tree_reader_sample_cluster import SampleCluster
+from tree_reader_node_cluster import NodeCluster
+from tree_reader_tree import Tree
+from json import dumps as jsn_dumps
+from os import makedirs
+from shutil import copyfile, rmtree
+import re
+import json
+import sys
+import os
+import random
+import glob
+import pickle
+from functools import reduce
+import scipy.special
+from scipy.stats import linregress
+from scipy.spatial.distance import jaccard
+from scipy.spatial.distance import squareform
+from scipy.optimize import nnls
+import sklearn
+from sklearn.decomposition import PCA
+from sklearn.decomposition import KernelPCA
+from sklearn.manifold import TSNE
+from sklearn.decomposition import NMF
+from umap import UMAP
+from scipy.cluster import hierarchy as hrc
+from multiprocessing import Pool
+import copy
+from pathlib import Path
+from scipy.spatial.distance import pdist, cdist
+from sklearn.linear_model import Ridge, Lasso
+from scipy.cluster.hierarchy import dendrogram, linkage
+import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 mpl.rcParams['figure.dpi'] = 300
 
 # General imports
-import numpy as np
-
-from scipy.cluster.hierarchy import dendrogram, linkage
-from sklearn.linear_model import Ridge, Lasso
-from scipy.spatial.distance import pdist, cdist
-from pathlib import Path
-import copy
-from multiprocessing import Pool
-from scipy.cluster import hierarchy as hrc
-from umap import UMAP
-from sklearn.decomposition import NMF
-from sklearn.manifold import TSNE
-from sklearn.decomposition import KernelPCA
-from sklearn.decomposition import PCA
-import sklearn
-from scipy.optimize import nnls
-from scipy.spatial.distance import squareform
-from scipy.spatial.distance import jaccard
-from scipy.stats import linregress
-import scipy.special
-from functools import reduce
-import pickle
-import glob
-import random
-import os
-import sys
-import json
-import re
 
 
 # Imports for html stuff
-from shutil import copyfile, rmtree
-from os import makedirs
-from json import dumps as jsn_dumps
-
 
 
 # Local imports
-from tree_reader_node import Node,Reduction,Filter
-from tree_reader_tree import Tree
-from tree_reader_node_cluster import NodeCluster
-from tree_reader_sample_cluster import SampleCluster
-from tree_reader_utils import fast_knn,double_fast_knn,hacked_louvain,generate_feature_value_html
-from tree_reader_prediction import Prediction
+
 
 class Forest:
 
@@ -178,7 +177,7 @@ class Forest:
         if pca > 0:
             if pca > encoding.shape[1]:
                 print("WARNING, PCA DIMENSION TOO SMALL, PICKING MINIMUM")
-                pca = np.min([pca,encoding.shape[1]])
+                pca = np.min([pca, encoding.shape[1]])
             # print(f"debug:{encoding.shape}")
             from sklearn.decomposition import IncrementalPCA
             model = IncrementalPCA(n_components=pca)
@@ -229,7 +228,6 @@ class Forest:
                 # for sample in node.sister().samples():
                 #     encoding[sample, i] = -1
         return encoding
-
 
     def leaf_mask(self):
         leaf_mask = np.zeros(len(self.nodes()), dtype=bool)
@@ -332,7 +330,6 @@ class Forest:
         with open(location, mode='br') as f:
             return pickle.load(f)
 
-
     def load_from_rust(location, prefix="/run", ifh="/run.ifh", ofh='run.ofh', clusters='run.cluster', input="input.counts", output="output.counts", test="test.counts"):
 
         combined_tree_files = sorted(
@@ -377,7 +374,6 @@ class Forest:
 
         if np.sum(np.sum(sample_encoding, axis=1) == 0) > 0:
             print("WARNING, UNREPRESENTED SAMPLES")
-
 
         return first_forest
 
@@ -656,8 +652,10 @@ class Forest:
 
     def node_change_absolute(self, nodes1, nodes2):
         # First we obtain the medians for the nodes in question
-        n1_predictions = np.mean(self.node_representation(nodes1,mode='mean'),axis=0)
-        n2_predictions = np.mean(self.node_representation(nodes2,mode='mean'),axis=0)
+        n1_predictions = np.mean(
+            self.node_representation(nodes1, mode='mean'), axis=0)
+        n2_predictions = np.mean(
+            self.node_representation(nodes2, mode='mean'), axis=0)
         difference = n2_predictions - n1_predictions
 
         # Then sort by difference and return
@@ -670,8 +668,10 @@ class Forest:
     def node_change_log_fold(self, nodes1, nodes2):
 
         # First we obtain the medians for the nodes in question
-        n1_means = np.mean(self.node_representation(nodes1,mode='mean'), axis=0)
-        n2_means = np.mean(self.node_representation(nodes2,mode='mean'), axis=0)
+        n1_means = np.mean(self.node_representation(
+            nodes1, mode='mean'), axis=0)
+        n2_means = np.mean(self.node_representation(
+            nodes2, mode='mean'), axis=0)
 
         # We evaluate the ratio of median values
         # log_fold_change = np.log2(n2_medians/n1_medians)
@@ -721,7 +721,8 @@ class Forest:
     def interpret_splits(self, override=False, mode='additive_mean', metric='cosine', pca=100, relatives=True, resolution=1, k=5, depth=6, **kwargs):
 
         if pca > len(self.output_features):
-            print("WARNING, PCA DIMENSION GREATER THAN FEATURE DIMENSION, PICKING MINIMUM")
+            print(
+                "WARNING, PCA DIMENSION GREATER THAN FEATURE DIMENSION, PICKING MINIMUM")
             pca = len(self.output_features)
 
         nodes = np.array(self.nodes(root=True, depth=depth))
@@ -798,7 +799,6 @@ class Forest:
 
         self.split_clusters = clusters
 
-
     def create_root_cluster(self):
 
         roots = [t.root for t in self.trees]
@@ -807,7 +807,6 @@ class Forest:
             node.set_split_cluster(0)
 
         self.split_clusters = [NodeCluster(self, roots, 0), ]
-
 
     def reset_sample_clusters(self):
         try:
@@ -970,7 +969,6 @@ class Forest:
         plt.show()
 
         return f
-
 
     def plot_representation(self, representation, labels=None, metric='cos', pca=False):
 
@@ -1495,8 +1493,8 @@ class Forest:
         # First we'd like to make sure we are operating from scratch in the html directory:
 
         if n > (self.output.shape[1] / 2):
-            print ("WARNING, PICKED N THAT IS TOO LARGE, SETTING LOWER")
-            n = max(int(self.output.shape[1]/2),1)
+            print("WARNING, PICKED N THAT IS TOO LARGE, SETTING LOWER")
+            n = max(int(self.output.shape[1] / 2), 1)
 
         if output is None:
             location = self.location()
@@ -1731,7 +1729,6 @@ class Forest:
         return global_correlations
 
 
-
 class TruthDictionary:
 
     def __init__(self, counts, header, samples=None):
@@ -1751,9 +1748,6 @@ class TruthDictionary:
     def look(self, sample, feature):
         #         print(feature)
         return(self.counts[self.sample_dictionary[sample], self.feature_dictionary[feature]])
-
-
-
 
 
 if __name__ != "__main__":

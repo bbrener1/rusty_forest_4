@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class Node:
 
     def __init__(self, node_json, tree, forest, parent=None, cache=False, lr=None, level=0):
@@ -147,8 +148,9 @@ class Node:
     def sample_cluster_means(self):
 
         labels = self.forest.sample_labels[self.samples]
-        one_hot = np.array([labels == x.id for x in self.forest.sample_clusters])
-        means = np.mean(one_hot,axis=0)
+        one_hot = np.array(
+            [labels == x.id for x in self.forest.sample_clusters])
+        means = np.mean(one_hot, axis=0)
         return means
 
     def feature_mean(self, feature):

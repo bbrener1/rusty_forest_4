@@ -1,11 +1,12 @@
 
 import numpy as np
-from scipy.spatial.distance import pdist,cdist,squareform
+from scipy.spatial.distance import pdist, cdist, squareform
 
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
 mpl.rcParams['figure.dpi'] = 300
+
 
 def numpy_mad(mtx):
     medians = []
@@ -24,7 +25,6 @@ def ssme(mtx, axis=None):
     median_distances = mtx - np.tile(np.array(medians), (mtx.shape[0], 1))
     ssme = np.sum(np.power(median_distances, 2), axis=axis)
     return ssme
-
 
 
 def hacked_louvain(knn, resolution=1):
@@ -77,8 +77,6 @@ def hacked_louvain(knn, resolution=1):
 #     return clusters
 
 
-
-
 def sample_agglomerative(nodes, samples, n_clusters):
 
     node_encoding = node_sample_encoding(nodes, samples)
@@ -117,7 +115,6 @@ def partition_mutual_information(p1, p2):
     log_term[np.logical_not(np.isfinite(log_term))] = 0
     mutual_information_matrix = (intersections / population) * log_term
     return mutual_information_matrix
-
 
 
 def count_list_elements(elements):

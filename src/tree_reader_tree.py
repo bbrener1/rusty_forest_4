@@ -1,5 +1,6 @@
 from tree_reader_node import Node
 
+
 class Tree:
 
     def __init__(self, tree_json, forest):

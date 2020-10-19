@@ -1,3 +1,4 @@
+from tree_reader_utils import js_wrap, generate_feature_value_html
 import os
 
 import numpy as np
@@ -7,7 +8,6 @@ import matplotlib as mpl
 
 mpl.rcParams['figure.dpi'] = 300
 
-from tree_reader_utils import js_wrap,generate_feature_value_html
 
 class NodeCluster:
 
@@ -61,7 +61,6 @@ class NodeCluster:
 # Consensus tree methods. Kinda weird/hacky. Need to rethink
 ################################################################################
 
-
     def parent_cluster(self):
         try:
             return self.forest.split_clusters[self.forest.reverse_likely_tree[self.id][0]]
@@ -104,7 +103,6 @@ class NodeCluster:
 ##############################################################################
 # Feature change methods (eg changes relative to related nodes)
 ##############################################################################
-
 
     def changed_absolute_root(self):
         roots = self.forest.nodes(root=True, depth=0)

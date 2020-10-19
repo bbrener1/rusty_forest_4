@@ -21,7 +21,8 @@ import tree_reader as tr
 import numpy as np
 # import matplotlib.pyplot as plt
 
-def main(location,input,output=None,ifh=None,ofh=None,**kwargs):
+
+def main(location, input, output=None, ifh=None, ofh=None, **kwargs):
     # print("Tree reader?")
     # print(path_to_tree_reader)
     if output is None:
@@ -33,15 +34,17 @@ def main(location,input,output=None,ifh=None,ofh=None,**kwargs):
     input_counts = np.loadtxt(input)
     output_counts = np.loadtxt(output)
     if ifh is not None:
-        ifh = np.loadtxt(ifh,dtype=str)
+        ifh = np.loadtxt(ifh, dtype=str)
     if ofh is not None:
-        ofh = np.loadtxt(ofh,dtype=str)
+        ofh = np.loadtxt(ofh, dtype=str)
     print("Loaded counts")
     print(input)
-    fit_return = save_trees(location,input_counts,output_counts=output_counts,ifh=ifh,ofh=ofh,**kwargs)
+    fit_return = save_trees(
+        location, input_counts, output_counts=output_counts, ifh=ifh, ofh=ofh, **kwargs)
     print(fit_return)
 
-def save_trees(location,input_counts,output_counts=None,test_counts=None,ifh=None,ofh=None,header=None,lrg_mem=None,**kwargs):
+
+def save_trees(location, input_counts, output_counts=None, test_counts=None, ifh=None, ofh=None, header=None, lrg_mem=None, **kwargs):
 
     if output_counts is None:
         output_counts = input_counts
@@ -50,28 +53,30 @@ def save_trees(location,input_counts,output_counts=None,test_counts=None,ifh=Non
         ifh = header
         ofh = header
 
-    np.savetxt(location + "input.counts",input_counts)
-    np.savetxt(location + "output.counts",output_counts)
+    np.savetxt(location + "input.counts", input_counts)
+    np.savetxt(location + "output.counts", output_counts)
 
     if test_counts is not None:
-        np.savetxt(location + "test.counts",test_counts)
+        np.savetxt(location + "test.counts", test_counts)
 
     if ifh is None:
-        np.savetxt(location + "tmp.ifh", np.arange(input_counts.shape[1],dtype=int),fmt='%u')
+        np.savetxt(location + "tmp.ifh",
+                   np.arange(input_counts.shape[1], dtype=int), fmt='%u')
     else:
-        np.savetxt(location + "tmp.ifh", ifh,fmt="%s")
+        np.savetxt(location + "tmp.ifh", ifh, fmt="%s")
 
     if ofh is None:
-        np.savetxt(location + "tmp.ofh", np.arange(output_counts.shape[1],dtype=int),fmt='%u')
+        np.savetxt(location + "tmp.ofh",
+                   np.arange(output_counts.shape[1], dtype=int), fmt='%u')
     else:
-        np.savetxt(location + "tmp.ofh", ofh,fmt="%s")
+        np.savetxt(location + "tmp.ofh", ofh, fmt="%s")
 
     print("Generating trees")
 
-    return inner_fit(input_counts,output_counts,location,ifh=(location + "tmp.ifh"),ofh=(location+"tmp.ofh"),lrg_mem=lrg_mem,**kwargs)
+    return inner_fit(input_counts, output_counts, location, ifh=(location + "tmp.ifh"), ofh=(location + "tmp.ofh"), lrg_mem=lrg_mem, **kwargs)
 
 
-def fit(input_counts,output_counts=None,test_counts=None,ifh=None,ofh=None,header=None,backtrace=False,lrg_mem=None,location=None,**kwargs):
+def fit(input_counts, output_counts=None, test_counts=None, ifh=None, ofh=None, header=None, backtrace=False, lrg_mem=None, location=None, **kwargs):
 
     if output_counts is None:
         output_counts = input_counts
@@ -87,7 +92,8 @@ def fit(input_counts,output_counts=None,test_counts=None,ifh=None,ofh=None,heade
         tmp_dir = tmp.TemporaryDirectory()
         location = tmp_dir.name + "/"
 
-    arguments = save_trees(tmp_dir.name + "/",input_counts=input_counts,output_counts=output_counts,test_counts=test_counts,ifh=ifh,ofh=ofh,header=header,lrg_mem=lrg_mem,**kwargs)
+    arguments = save_trees(tmp_dir.name + "/", input_counts=input_counts, output_counts=output_counts,
+                           test_counts=test_counts, ifh=ifh, ofh=ofh, header=header, lrg_mem=lrg_mem, **kwargs)
 
     print("CHECK TRUTH")
     print(tmp_dir.name)
@@ -101,7 +107,8 @@ def fit(input_counts,output_counts=None,test_counts=None,ifh=None,ofh=None,heade
     print("CHECK OUTPUT")
     print(os.listdir(tmp_dir.name))
 
-    forest = tr.Forest.load_from_rust(location,prefix="tmp",ifh="tmp.ifh",ofh="tmp.ofh",clusters="tmp.clusters",input="input.counts",output="output.counts",test="test.counts")
+    forest = tr.Forest.load_from_rust(location, prefix="tmp", ifh="tmp.ifh", ofh="tmp.ofh",
+                                      clusters="tmp.clusters", input="input.counts", output="output.counts", test="test.counts")
 
     forest.arguments = arguments
 
@@ -143,11 +150,12 @@ def fit(input_counts,output_counts=None,test_counts=None,ifh=None,ofh=None,heade
 #             print(output.strip())
 
 
-def inner_fit(input_counts,output_counts,location,backtrace=False,lrg_mem=None, **kwargs):
+def inner_fit(input_counts, output_counts, location, backtrace=False, lrg_mem=None, **kwargs):
 
     # targets = "\n".join(["\t".join([str(y) for y in x]) for x in targets]) + "\n"
 
-    path_to_rust = (Path(__file__).parent / "../target/release/rusty_lumberjack_v3").resolve()
+    path_to_rust = (Path(__file__).parent /
+                    "../target/release/rusty_lumberjack_v3").resolve()
 
     print("Running " + str(path_to_rust))
 
@@ -156,8 +164,8 @@ def inner_fit(input_counts,output_counts,location,backtrace=False,lrg_mem=None, 
     # if backtrace:
     #     arg_list.append("RUST_BACKTRACE=1")
 
-
-    arg_list.extend([str(path_to_rust),"-ic",location + "input.counts","-oc",location + "output.counts","-o",location + "tmp","-auto"])
+    arg_list.extend([str(path_to_rust), "-ic", location + "input.counts",
+                     "-oc", location + "output.counts", "-o", location + "tmp", "-auto"])
 
     for arg in kwargs.keys():
         arg_list.append("-" + str(arg))
@@ -176,7 +184,7 @@ def inner_fit(input_counts,output_counts,location,backtrace=False,lrg_mem=None, 
     # except:
     #     print("Communicated input")
     #
-    with sp.Popen(arg_list,stdin=sp.PIPE,stdout=sp.PIPE,stderr=sp.PIPE,universal_newlines=True) as cp:
+    with sp.Popen(arg_list, stdin=sp.PIPE, stdout=sp.PIPE, stderr=sp.PIPE, universal_newlines=True) as cp:
         # try:
         #     cp.communicate(input=targets,timeout=1)
         # except:
@@ -203,9 +211,10 @@ def inner_fit(input_counts,output_counts,location,backtrace=False,lrg_mem=None, 
     #
     # print(cp.stderr.read())
 
+
 if __name__ == "__main__":
-    kwargs = {x.split("=")[0]:x.split("=")[1] for x in sys.argv[3:]}
-    main(sys.argv[1],sys.argv[2],**kwargs)
+    kwargs = {x.split("=")[0]: x.split("=")[1] for x in sys.argv[3:]}
+    main(sys.argv[1], sys.argv[2], **kwargs)
 
 
 # ,feature_sub=None,distance=None,sample_sub=None,scaling=None,merge_distance=None,refining=False,error_dump=None,convergence_factor=None,smoothing=None,locality=None)

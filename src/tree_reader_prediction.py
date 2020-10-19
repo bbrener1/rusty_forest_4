@@ -5,6 +5,7 @@ import matplotlib as mpl
 
 mpl.rcParams['figure.dpi'] = 300
 
+
 class Prediction:
 
     def __init__(self, forest, matrix):
@@ -136,7 +137,8 @@ class Prediction:
 
             leaf_mask = self.forest.leaf_mask()
             encoding_prediction = self.node_sample_encoding()[leaf_mask].T
-            leaf_means = np.array([l.sample_cluster_means() for l in self.forest.leaves()])
+            leaf_means = np.array([l.sample_cluster_means()
+                                   for l in self.forest.leaves()])
             scaling = np.dot(encoding_prediction,
                              np.ones(leaf_means.shape))
 

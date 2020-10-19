@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class SampleCluster:
 
     def __init__(self, forest, samples, id):
