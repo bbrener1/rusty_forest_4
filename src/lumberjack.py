@@ -101,7 +101,7 @@ def fit(input_counts,output_counts=None,test_counts=None,ifh=None,ofh=None,heade
     print("CHECK OUTPUT")
     print(os.listdir(tmp_dir.name))
 
-    forest = tr.Forest.load(location,prefix="tmp",ifh="tmp.ifh",ofh="tmp.ofh",clusters="tmp.clusters",input="input.counts",output="output.counts",test="test.counts")
+    forest = tr.Forest.load_from_rust(location,prefix="tmp",ifh="tmp.ifh",ofh="tmp.ofh",clusters="tmp.clusters",input="input.counts",output="output.counts",test="test.counts")
 
     forest.arguments = arguments
 
