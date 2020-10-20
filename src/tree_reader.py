@@ -1,4 +1,3 @@
-# Imports for matplotlib
 from tree_reader_utils import fast_knn, double_fast_knn, hacked_louvain, generate_feature_value_html
 from tree_reader_node import Node, Reduction, Filter
 from tree_reader_prediction import Prediction
@@ -38,14 +37,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 mpl.rcParams['figure.dpi'] = 300
-
-# General imports
-
-
-# Imports for html stuff
-
-
-# Local imports
 
 
 class Forest:
@@ -88,9 +79,9 @@ class Forest:
 ########################################################################
 ########################################################################
 
-        # Node selection methods
+# Node selection methods
 
-      # Methods for picking specific nodes from the forest
+# Methods for picking specific nodes from the forest
 
 ########################################################################
 ########################################################################
@@ -238,18 +229,17 @@ class Forest:
 ########################################################################
 ########################################################################
 
-      # Node/Matrix Methods
+# Node/Matrix Methods
 
-      # Methods for turning a set of nodes into an encoding matrix
-      # For methods that turn nodes into float matrices see prediction
+# Methods for turning a set of nodes into an encoding matrix
+# For methods that turn nodes into float matrices see prediction
 
-      # Encoding matrices are boolean matrices, usually node x property
-      # Sample encoding matrix would be i,j, where i is ith node and j is whether
-      # sample j appears in that node
+# Encoding matrices are boolean matrices, usually node x property
+# Sample encoding matrix would be i,j, where i is ith node and j is whether
+# sample j appears in that node
 
 ########################################################################
 ########################################################################
-
 
     def absolute_gain_matrix(self, nodes):
         gains = np.zeros((len(self.output_features), len(nodes)))
@@ -309,10 +299,10 @@ class Forest:
 ########################################################################
 ########################################################################
 
-        # Loading/Creation Methods
+# Loading/Creation Methods
 
-      # This section deals with methods that load and unload the forest
-      # from disk
+# This section deals with methods that load and unload the forest
+# from disk
 
 ########################################################################
 ########################################################################
@@ -440,10 +430,10 @@ class Forest:
 ########################################################################
 ########################################################################
 
-            # PREDICTION METHODS
+# PREDICTION METHODS
 
-      # This section deals with methods that allow predictions on
-      # samples
+# This section deals with methods that allow predictions on
+# samples
 
 ########################################################################
 ########################################################################
@@ -506,6 +496,7 @@ class Forest:
 ########################################################################
 
     def split_labels(self, depth=3):
+        
         nodes = self.nodes(depth=depth)
         return np.array([n.split_cluster for n in nodes])
 
