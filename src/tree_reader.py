@@ -122,6 +122,25 @@ class Forest:
         for tree in self.trees:
             tree.trim(depth)
 
+    def leaf_mask(self):
+        leaf_mask = np.zeros(len(self.nodes()), dtype=bool)
+        leaf_mask[[l.index for l in self.leaves()]] = True
+        return leaf_mask
+
+########################################################################
+########################################################################
+
+# NODE/MATRIX METHODS
+
+# Methods for turning a set of nodes into an encoding matrix
+
+# Encoding matrices are boolean matrices, usually node x property
+# Sample encoding matrix would be i,j, where i is ith node and j is whether
+# sample j appears in that node
+
+########################################################################
+########################################################################
+
     def node_sample_encoding(self, nodes):
 
         # ROWS: SAMPLES
@@ -220,27 +239,6 @@ class Forest:
                 #     encoding[sample, i] = -1
         return encoding
 
-    def leaf_mask(self):
-        leaf_mask = np.zeros(len(self.nodes()), dtype=bool)
-        leaf_mask[[l.index for l in self.leaves()]] = True
-        return leaf_mask
-
-
-########################################################################
-########################################################################
-
-# Node/Matrix Methods
-
-# Methods for turning a set of nodes into an encoding matrix
-# For methods that turn nodes into float matrices see prediction
-
-# Encoding matrices are boolean matrices, usually node x property
-# Sample encoding matrix would be i,j, where i is ith node and j is whether
-# sample j appears in that node
-
-########################################################################
-########################################################################
-
     def absolute_gain_matrix(self, nodes):
         gains = np.zeros((len(self.output_features), len(nodes)))
         for i, node in enumerate(nodes):
@@ -299,7 +297,7 @@ class Forest:
 ########################################################################
 ########################################################################
 
-# Loading/Creation Methods
+# LOADING/CREATION METHODS
 
 # This section deals with methods that load and unload the forest
 # from disk
@@ -490,7 +488,7 @@ class Forest:
 ########################################################################
 ########################################################################
 
-        # Clustering methods
+# CLUSTERING METHODS
 
 ########################################################################
 ########################################################################
@@ -835,7 +833,6 @@ class Forest:
         self.reset_split_clusters()
         self.reset_leaf_clusters()
 
-
 ########################################################################
 ########################################################################
 
@@ -844,12 +841,8 @@ class Forest:
 ########################################################################
 ########################################################################
 
-
-
     def plot_sample_clusters(self, colorize=True, label=True):
-        # if not hasattr(self,'leaf_clusters'):
-        #     print("Warning, leaf clusters not detected")
-        #     return None
+
         if not hasattr(self, 'sample_clusters'):
             print("Warning, sample clusters not detected")
             return None
@@ -906,6 +899,7 @@ class Forest:
         return f
 
     def plot_split_clusters(self, colorize=True):
+
         if not hasattr(self, 'split_clusters'):
             print("Warning, split clusters not detected")
             return None
@@ -1199,7 +1193,7 @@ class Forest:
 ########################################################################
 ########################################################################
 
-        # Consensus tree methods
+# Consensus tree methods
 
 ########################################################################
 ########################################################################
