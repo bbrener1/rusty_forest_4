@@ -41,15 +41,13 @@ mpl.rcParams['figure.dpi'] = 300
 
 class Forest:
 
-    def __init__(self, trees, input, output, test=None, input_features=None, output_features=None, samples=None, split_labels=None, cache=False):
+    def __init__(self, trees, input, output, input_features=None, output_features=None, samples=None, split_labels=None, cache=False):
         if input_features is None:
             input_features = [str(i) for i in range(input.shape[1])]
         if output_features is None:
             output_features = [str(i) for i in range(output.shape[1])]
         if samples is None:
             samples = [str(i) for i in range(input.shape[0])]
-        if test is not None:
-            self.test = test
 
         self.cache = cache
 
@@ -71,10 +69,6 @@ class Forest:
         for i, node in enumerate(self.nodes()):
             node.index = i
 
-    def test_forest(roots, inputs, outputs, samples=None):
-        test_forest = Forest([], inputs, outputs, samples)
-        test_trees = [Tree.test_tree(root, test_forest) for root in roots]
-        test_forest.trees = test_trees
 
 ########################################################################
 ########################################################################
@@ -124,7 +118,7 @@ class Forest:
 
     def leaf_mask(self):
         leaf_mask = np.zeros(len(self.nodes()), dtype=bool)
-        leaf_mask[[l.index for l in self.leaves()]] = True
+        leaf_mask[[lleaf.index for leaf in self.leaves()]] = True
         return leaf_mask
 
 ########################################################################
@@ -311,7 +305,7 @@ class Forest:
         try:
             with open(location, mode='bw') as f:
                 pickle.dump(self, f)
-        except:
+        except Exception:
             print("Failed to save")
 
     def load(location):
@@ -330,7 +324,7 @@ class Forest:
 
         try:
             test = np.loadtxt(location + test)
-        except:
+        except Exception:
             print("Test data not detected")
             pass
 
@@ -338,7 +332,7 @@ class Forest:
         try:
             print(f"Looking for clusters:{location+clusters}")
             split_labels = np.loadtxt(location + clusters, dtype=int)
-        except:
+        except Exception:
             pass
 
         first_forest = Forest([], input_features=ifh, output_features=ofh,
@@ -484,7 +478,6 @@ class Forest:
             encoding = encoding[depth_mask]
         return encoding
 
-
 ########################################################################
 ########################################################################
 
@@ -569,7 +562,7 @@ class Forest:
 
         leaves = [n for n in self.nodes() if hasattr(n, 'leaf_cluster')]
         encoding = self.node_sample_encoding(leaves)
-        leaf_clusters = np.array([l.leaf_cluster for l in leaves])
+        leaf_clusters = np.array([leaf.leaf_cluster for leaf in leaves])
         leaf_cluster_sizes = np.array(
             [np.sum(leaf_clusters == cluster) for cluster in range(len(set(leaf_clusters)))])
 
@@ -804,7 +797,7 @@ class Forest:
             del self.sample_clusters
             del self.sample_cluster_encoding
             del self.sample_labels
-        except:
+        except Exception:
             print("No sample clusters")
 
     def reset_split_clusters(self):
@@ -814,7 +807,7 @@ class Forest:
                 node.child_clusters = ([], [])
                 if hasattr(node, 'split_cluster'):
                     del node.split_cluster
-        except:
+        except Exception:
             print("No split clusters")
 
     def reset_leaf_clusters(self):
@@ -824,7 +817,7 @@ class Forest:
             for node in self.nodes():
                 if hasattr(node, 'leaf_cluster'):
                     del node.leaf_cluster
-        except:
+        except Exception:
             print("No leaf clusters")
 
     def reset_clusters(self):
@@ -959,13 +952,13 @@ class Forest:
             try:
                 agg_f = dendrogram(linkage(
                     representation.T, metric='cosine', method='average'), no_plot=True)['leaves']
-            except:
+            except Exception:
                 agg_f = dendrogram(linkage(
                     representation.T, metric='cityblock', method='average'), no_plot=True)['leaves']
             try:
                 agg_s = dendrogram(linkage(
                     representation, metric='cosine', method='average'), no_plot=True)['leaves']
-            except:
+            except Exception:
                 agg_s = dendrogram(linkage(
                     representation, metric='cityblock', method='average'), no_plot=True)['leaves']
 
@@ -1333,7 +1326,7 @@ class Forest:
         children = []
         try:
             available.remove(cluster)
-        except:
+        except Exception:
             pass
         for child in prototype[cluster]:
             if child in available:
@@ -1431,7 +1424,7 @@ class Forest:
             children = []
             try:
                 available.remove(cluster)
-            except:
+            except Exception:
                 pass
             for child in np.arange(mst.shape[0])[mst[cluster] > 0]:
                 if child in available:
