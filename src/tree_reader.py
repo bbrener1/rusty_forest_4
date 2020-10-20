@@ -496,7 +496,7 @@ class Forest:
 ########################################################################
 
     def split_labels(self, depth=3):
-        
+
         nodes = self.nodes(depth=depth)
         return np.array([n.split_cluster for n in nodes])
 
@@ -839,22 +839,11 @@ class Forest:
 ########################################################################
 ########################################################################
 
-        # Plotting methods
+# Plotting methods
 
 ########################################################################
 ########################################################################
 
-    # def plot_counts(self,no_plot=False):
-    #
-    #     if not no_plot:
-    #         cell_sort = dendrogram(linkage(encoding,metric='cos',method='average'),no_plot=True)['leaves']
-    #         leaf_sort = dendrogram(linkage(encoding.T,metric='cos',method='average'),no_plot=True)['leaves']
-    #
-    #         plt.figure(figsize=(10,10))
-    #         plt.imshow(encoding[cell_sort].T[leaf_sort].T,cmap='binary')
-    #         plt.show()
-    #
-    #     return cell_sort,leaf_sort,self.ouput_counts
 
 
     def plot_sample_clusters(self, colorize=True, label=True):
