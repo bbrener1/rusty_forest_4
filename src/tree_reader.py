@@ -312,7 +312,7 @@ class Forest:
         with open(location, mode='br') as f:
             return pickle.load(f)
 
-    def load_from_rust(location, prefix="/run", ifh="/run.ifh", ofh='run.ofh', clusters='run.cluster', input="input.counts", output="output.counts", test="test.counts"):
+    def load_from_rust(location, prefix="/run", ifh="/run.ifh", ofh='run.ofh', clusters='run.cluster', input="input.counts", output="output.counts"):
 
         combined_tree_files = sorted(
             glob.glob(location + prefix + "*.compact"))
@@ -322,12 +322,6 @@ class Forest:
         ifh = np.loadtxt(location + ifh, dtype=str)
         ofh = np.loadtxt(location + ofh, dtype=str)
 
-        try:
-            test = np.loadtxt(location + test)
-        except Exception:
-            print("Test data not detected")
-            pass
-
         split_labels = None
         try:
             print(f"Looking for clusters:{location+clusters}")
@@ -336,7 +330,7 @@ class Forest:
             pass
 
         first_forest = Forest([], input_features=ifh, output_features=ofh,
-                              input=input, output=output, test=test, split_labels=split_labels)
+                              input=input, output=output, split_labels=split_labels)
 
         trees = []
         for tree_file in combined_tree_files:
@@ -829,7 +823,7 @@ class Forest:
 ########################################################################
 ########################################################################
 
-# Plotting methods
+# PLOTTING METHODS
 
 ########################################################################
 ########################################################################

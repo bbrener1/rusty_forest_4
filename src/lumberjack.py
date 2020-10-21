@@ -44,7 +44,7 @@ def main(location, input, output=None, ifh=None, ofh=None, **kwargs):
     print(fit_return)
 
 
-def save_trees(location, input_counts, output_counts=None, test_counts=None, ifh=None, ofh=None, header=None, lrg_mem=None, **kwargs):
+def save_trees(location, input_counts, output_counts=None, ifh=None, ofh=None, header=None, lrg_mem=None, **kwargs):
 
     if output_counts is None:
         output_counts = input_counts
@@ -56,8 +56,6 @@ def save_trees(location, input_counts, output_counts=None, test_counts=None, ifh
     np.savetxt(location + "input.counts", input_counts)
     np.savetxt(location + "output.counts", output_counts)
 
-    if test_counts is not None:
-        np.savetxt(location + "test.counts", test_counts)
 
     if ifh is None:
         np.savetxt(location + "tmp.ifh",
@@ -76,7 +74,7 @@ def save_trees(location, input_counts, output_counts=None, test_counts=None, ifh
     return inner_fit(input_counts, output_counts, location, ifh=(location + "tmp.ifh"), ofh=(location + "tmp.ofh"), lrg_mem=lrg_mem, **kwargs)
 
 
-def fit(input_counts, output_counts=None, test_counts=None, ifh=None, ofh=None, header=None, backtrace=False, lrg_mem=None, location=None, **kwargs):
+def fit(input_counts, output_counts=None, ifh=None, ofh=None, header=None, backtrace=False, lrg_mem=None, location=None, **kwargs):
 
     if output_counts is None:
         output_counts = input_counts
@@ -93,7 +91,7 @@ def fit(input_counts, output_counts=None, test_counts=None, ifh=None, ofh=None, 
         location = tmp_dir.name + "/"
 
     arguments = save_trees(tmp_dir.name + "/", input_counts=input_counts, output_counts=output_counts,
-                           test_counts=test_counts, ifh=ifh, ofh=ofh, header=header, lrg_mem=lrg_mem, **kwargs)
+                           ifh=ifh, ofh=ofh, header=header, lrg_mem=lrg_mem, **kwargs)
 
     print("CHECK TRUTH")
     print(tmp_dir.name)
@@ -108,7 +106,7 @@ def fit(input_counts, output_counts=None, test_counts=None, ifh=None, ofh=None, 
     print(os.listdir(tmp_dir.name))
 
     forest = tr.Forest.load_from_rust(location, prefix="tmp", ifh="tmp.ifh", ofh="tmp.ofh",
-                                      clusters="tmp.clusters", input="input.counts", output="output.counts", test="test.counts")
+                                      clusters="tmp.clusters", input="input.counts", output="output.counts")
 
     forest.arguments = arguments
 
@@ -116,38 +114,6 @@ def fit(input_counts, output_counts=None, test_counts=None, ifh=None, ofh=None, 
         tmp_dir.cleanup()
 
     return forest
-#
-# def ihmm_fit(location,**kwargs):
-#
-#     path_to_rust = (Path(__file__).parent / "../target/release/lumberjack_1").resolve()
-#
-#     print("Running " + str(path_to_rust))
-#
-#     arg_list = []
-#
-#     arg_list.extend([str(path_to_rust),"analyze", "-n", location + "*.compact","-o",location + "tmp.clusters"])
-#
-#     for arg in kwargs.keys():
-#         arg_list.append("-" + str(arg))
-#         arg_list.append(str(kwargs[arg]))
-#
-#     print("Command: " + " ".join(arg_list))
-#
-#     with sp.Popen(arg_list,stdin=sp.PIPE,stdout=sp.PIPE,stderr=sp.PIPE,universal_newlines=True) as cp:
-#         # try:
-#         #     cp.communicate(input=targets,timeout=1)
-#         # except:
-#         #     pass
-#         while True:
-#             # sleep(0.1)
-#             rc = cp.poll()
-#             if rc is not None:
-#                 print(cp.stdout.read())
-#                 print(cp.stderr.read())
-#                 break
-#             output = cp.stdout.readline()
-#             # print("Read line")
-#             print(output.strip())
 
 
 def inner_fit(input_counts, output_counts, location, backtrace=False, lrg_mem=None, **kwargs):
