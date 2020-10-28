@@ -36,6 +36,8 @@
     }
     table {
       width:100%;
+      border-collapse:collapse;
+      text-align:center;
     }
     #sister_panel {
       display:block;
@@ -135,6 +137,8 @@
     $("#sisterUpregulatedFeatures").append(attributes.sisterUpregulatedHtml);
     $("#sisterDownregulatedFeatures").append(attributes.sisterDownregulatedHtml);
     $("#errorDown").append(attributes.errorDown);
+    $("#cross_ref_local").append(attributes.localCrossRef)
+    $("#cross_ref_global").append(attributes.globalCrossRef)
     // $("#childListing").append(attributes.children)
     // $("#siblingListing").append(attributes.siblings)
     // $("#parent").append(attributes.parent)
@@ -181,13 +185,21 @@
     document.getElementById("error_vs_parent").style.display = "grid"
   }
   function globalCross(){
-    document.getElementById("local_cross").style.display = "none";
-    document.getElementById("global_cross").style.display = "block";
+    document.getElementById("cross_ref_local").style.display = "none";
+    document.getElementById("cross_ref_global").style.display = "block";
   }
   function localCross(){
-    document.getElementById("local_cross").style.display = "block";
-    document.getElementById("global_cross").style.display = "none";
+    document.getElementById("cross_ref_local").style.display = "block";
+    document.getElementById("cross_ref_global").style.display = "none";
   }
+  // function globalCross(){
+  //   document.getElementById("local_cross").style.display = "none";
+  //   document.getElementById("global_cross").style.display = "block";
+  // }
+  // function localCross(){
+  //   document.getElementById("local_cross").style.display = "block";
+  //   document.getElementById("global_cross").style.display = "none";
+  // }
   </script>
 </head>
 <body>
@@ -277,9 +289,14 @@
 
 
   <div id="cross_ref" class="panel cross_ref">
-    <h2 style="text-align:center;" class="cross_ref_header"> Feature Correlations </h2>
-    <img id="local_cross" class="cross_ref_image" src="local_cross.png" />
-    <img id="global_cross" class="cross_ref_image" src="global_cross.png" style="display:none" />
+    <div id="cross_ref_local">
+    <h2 style="text-align:center;" class="cross_ref_header"> Feature Correlations (Local) </h2>
+    </div>
+    <div id="cross_ref_global" style="display:none">
+    <h2 style="text-align:center;" class="cross_ref_header"> Feature Correlations (Glob) </h2>
+    </div>
+    <!-- <img id="local_cross" class="cross_ref_image" src="local_cross.png" />
+    <img id="global_cross" class="cross_ref_image" src="global_cross.png" style="display:none" /> -->
   </div>
 
   <!-- <div id="cross_ref" class="panel cross_ref">

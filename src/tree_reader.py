@@ -36,7 +36,7 @@ from scipy.cluster.hierarchy import dendrogram, linkage
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-mpl.rcParams['figure.dpi'] = 300
+mpl.rcParams['figure.dpi'] = 100
 
 
 class Forest:
@@ -118,7 +118,7 @@ class Forest:
 
     def leaf_mask(self):
         leaf_mask = np.zeros(len(self.nodes()), dtype=bool)
-        leaf_mask[[lleaf.index for leaf in self.leaves()]] = True
+        leaf_mask[[leaf.index for leaf in self.leaves()]] = True
         return leaf_mask
 
 ########################################################################
@@ -719,14 +719,14 @@ class Forest:
 
             print("Running double knn")
             knn = double_fast_knn(own_representation,
-                                  sister_representation, k=k, metric=metric)
+                                  sister_representation, k=k, metric=metric, **kwargs)
 
         else:
             representation = self.node_representation(
                 nodes, mode=mode, metric=None, pca=pca)
 
             print("Running knn")
-            knn = fast_knn(representation, k=k, metric=metric)
+            knn = fast_knn(representation, k=k, metric=metric, **kwargs)
 
         print("Calling clustering procedure")
         labels[stem_mask] = 1 + hacked_louvain(knn, resolution=resolution)

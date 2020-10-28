@@ -5,7 +5,7 @@ from scipy.spatial.distance import pdist, cdist, squareform
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
-mpl.rcParams['figure.dpi'] = 300
+mpl.rcParams['figure.dpi'] = 100
 
 
 def numpy_mad(mtx):
@@ -135,58 +135,76 @@ def triangulate_knn(elements, k):
 
 def generate_feature_value_html(features, values, normalization=None, cmap=None):
 
-    if not isinstance(cmap, mpl.colors.Colormap):
-        from matplotlib.cm import get_cmap
-        try:
-            cmap = get_cmap(cmap)
-        except:
-            cmap = get_cmap('viridis')
-    # if normalization is None:
-    #     from matplotlib.colors import SymLogNorm, DivergingNorm
-    #     normalization = DivergingNorm(0)
-        # normalization = SymLogNorm(linthresh=.05)
+    col_header = ["Features", "Values"]
+    values = np.around(list(values), decimals = 3)
+
+    mtx = np.array([[str(f) for f in features], [str(v) for v in values]]).T
+
+    html = generate_html_table(mtx, col_header=col_header)
+
+    return html
+
+
+def generate_html_table(mtx, row_header = None, col_header = None, colors=None):
+
+    header = []
+    rows = []
+
+    if col_header is not None:
+        if row_header is not None:
+            header.append(f"<th></th>")
+        for header_element in col_header:
+            header.append(f'<th scope="col">{header_element}</th>')
+
+    if row_header is None:
+        row_header = ["",] * mtx.shape[0]
+    else:
+        row_header = [f'<th scope="row">{str(rh)}</th>' for rh in row_header]
+
+    if colors is None:
+        colors = np.zeros((*mtx.shape,4))
+
+    for row,row_colors,rh in zip(mtx,colors,row_header):
+        row_inner = []
+        for element,c_val in zip(row,row_colors):
+            r,g,b,a = c_val*100
+            a /= 3
+            color_tag = f'style="background-color:rgba({r}%,{g}%,{b}%,{a}%);"'
+            row_inner.append(f"<td {color_tag}>{element}</td>")
+        row_str = "".join(["<tr>",f"{rh}",*row_inner,"</tr>"])
+        rows.append(row_str)
 
     html_elements = [
         # '<table width="100%">',
         '<table>',
-        "<style>", "th,td {padding:5px;border-bottom:1px solid #ddd;}", "</style>",
+        "<style>",
+        "th,td {padding:5px; min-width:30px;max-width:30px;}",
+        "td {width=30px;}"
+        "th {border-bottom:2px solid black;border-right:2px solid black;}"
+        "</style>",
         "<tr>",
-        "<th>", "Features", "</th>",
-        "<th>", "Values", "</th>",
+        *header,
         "</tr>",
+        *rows,
+        "</table>",
     ]
-    for feature, value in zip(features, values):
-        value_color_tag = ""
-        # if normalization is not None:
-        #     normed_value = normalization(value)
-        #     r,g,b,a = cmap(normed_value)
-        #     r,g,b,a = r*100,g*100,b*100,a*100
-        # value_color_tag = f'style="background-color:rgba({r}%,{g}%,{b}%,50%);"'
-        # value_color_tag = f'style="background-image:linear-gradient(to right,rgba({r}%,{g}%,{b}%,0%),rgba({r}%,{g}%,{b}%,50%));"'
-        feature_elements = f"""
-            <tr>
-                <td>{feature}</td>
-                <td {value_color_tag}>{value}</td>
-            </td>
-        """
-        html_elements.append(feature_elements)
 
-    html_elements.append("</table>")
     return "".join(html_elements)
 
 
-# def generate_local_correlation_table(f1,f2,local,global):
-#
-#     html_elements = [
-#         # '<table width="100%">',
-#         '<table>',
-#         "<style>", "th,td {padding:5px;border-bottom:1px solid #ddd;}", "</style>",
-#         "<tr>",
-#         "<th>", "Features", "</th>",
-#         "<th>", "Values", "</th>",
-#         "</tr>",
-#     ]
+def generate_cross_reference_table(mtx,features):
 
+    # Pad the feature list to offset for 0,0
+    # features = ["", *features]
+
+    # Generate color values
+
+    cmap = mpl.cm.get_cmap("bwr")
+    colors = cmap(mtx)
+
+    html = generate_html_table(mtx,row_header = features, col_header = features, colors=colors)
+
+    return html
 
 def js_wrap(name, content):
     return f"<script> let {name} = {content};</script>"

@@ -578,8 +578,8 @@ where
         self.median()
     }
     fn dispersion(&self) -> Self::V {
-        self.ssme()
-        // self.sme()
+        // self.ssme()
+        self.sme()
     }
 
 }

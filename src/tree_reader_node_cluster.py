@@ -1,4 +1,4 @@
-from tree_reader_utils import js_wrap, generate_feature_value_html
+from tree_reader_utils import js_wrap, generate_feature_value_html, generate_cross_reference_table
 import os
 
 import numpy as np
@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
-mpl.rcParams['figure.dpi'] = 300
+mpl.rcParams['figure.dpi'] = 100
 
 
 class NodeCluster:
@@ -306,6 +306,26 @@ class NodeCluster:
     def mean_population(self):
         return np.mean([n.pop() for n in self.nodes])
 
+    def important_features(self,n=10,method='mean'):
+
+        if method == 'mean':
+            features, values = self.changed_absolute_sister()
+            important_features = list(
+                features[:n]) + list(features[-n:])
+            important_values = list(values[:n]) + list(values[-n:])
+        elif method == "error" or method == "cod":
+            features, values = self.error_ratio()
+            cod = 1 - error_ratio
+            important_features = list(error_features[:n * 2])
+            important_values = list(cod[:n * 2])
+        else:
+            raise Exception(f"Method not recognized: {method}")
+
+        important_indices = [
+            self.forest.truth_dictionary.feature_dictionary[f] for f in important_features]
+
+        return important_features,important_values,important_indices
+
     def local_correlations(self):
 
         weights = self.sample_counts()
@@ -427,6 +447,8 @@ class NodeCluster:
         probability_enrichment = [(self.forest.split_clusters[i].name(), enrichment) for (
             i, enrichment) in enumerate(probability_enrichment)]
 
+        local_cross_html,global_cross_html = self.html_cross_reference(n=n)
+
         attributes['clusterName'] = str(self.name())
         attributes['clusterId'] = int(self.id)
         attributes['errorUp'] = generate_feature_value_html(
@@ -446,6 +468,8 @@ class NodeCluster:
         attributes['absoluteDownregulatedHtml'] = generate_feature_value_html(
             reversed(changed_vs_all[:n]), reversed(fold_vs_all[:n]), cmap='bwr')
         attributes['probability_enrichment'] = probability_enrichment
+        attributes['localCrossRef'] = local_cross_html
+        attributes['globalCrossRef'] = global_cross_html
         # attributes['children'] = ", ".join(
         #     [c.name() for c in self.child_clusters()])
         # attributes['parent'] = self.parent_cluster().name()
@@ -463,32 +487,33 @@ class NodeCluster:
 
         return jsn_dumps(attributes)
 
+    def top_local_table(self,n):
+        changed_vs_sister, fold_vs_sister = self.changed_absolute_sister()
+        important_features, important_folds, important_indices = self.important_features(n)
+        local_correlations = self.local_correlations()
+        selected_local = local_correlations[important_indices].T[important_indices].T
+
+        selected_local = np.around(selected_local,decimals=3)
+
+        return selected_local,important_features
+
+    def top_global_table(self,n):
+        changed_vs_sister, fold_vs_sister = self.changed_absolute_sister()
+        important_features, important_folds, important_indices = self.important_features(n)
+        global_correlations = self.forest.global_correlations()
+        selected_global = global_correlations[important_indices].T[important_indices].T
+
+        selected_global = np.around(selected_global,decimals=3)
+
+        return selected_global,important_features
+
     def top_local(self, n, no_plot=False):
 
         import matplotlib.patheffects as PathEffects
-        #
-        # changed_vs_sister, fold_vs_sister = self.changed_absolute_sister()
-        #
-        # important_features = list(
-        #     changed_vs_sister[:n]) + list(changed_vs_sister[-n:])
-        # important_folds = list(fold_vs_sister[:n]) + list(fold_vs_sister[-n:])
-        # important_indices = [
-        #     self.forest.truth_dictionary.feature_dictionary[f] for f in important_features]
 
-        error_features, error_ratio = self.error_ratio()
+        selected_local,important_features = self.top_local_table(n)
 
-        cod = 1 - error_ratio
-
-        important_features = list(error_features[:n * 2])
-        important_ratios = list(cod[:n * 2])
-        important_indices = [
-            self.forest.truth_dictionary.feature_dictionary[f] for f in important_features]
-
-        local_correlations = self.local_correlations()
-
-        selected_local = local_correlations[important_indices].T[important_indices].T
-
-        m = len(important_indices)
+        m = len(important_features)
 
         fig = plt.figure(figsize=(n, n))
         ax = fig.add_axes([0, 0, 1, 1])
@@ -514,29 +539,10 @@ class NodeCluster:
     def top_global(self, n, no_plot=False):
 
         import matplotlib.patheffects as PathEffects
-        #
-        # changed_vs_sister, fold_vs_sister = self.changed_absolute_sister()
-        #
-        # important_features = list(
-        #     changed_vs_sister[:n]) + list(changed_vs_sister[-n:])
-        # important_folds = list(fold_vs_sister[:n]) + list(fold_vs_sister[-n:])
-        # important_indices = [
-        #     self.forest.truth_dictionary.feature_dictionary[f] for f in important_features]
 
-        error_features, error_ratio = self.error_ratio()
+        selected_global,important_features = self.top_global_table(n)
 
-        cod = 1 - error_ratio
-
-        important_features = list(error_features[:n * 2])
-        important_ratios = list(cod[:n * 2])
-        important_indices = [
-            self.forest.truth_dictionary.feature_dictionary[f] for f in important_features]
-
-        global_correlations = self.forest.global_correlations()
-
-        selected_global = global_correlations[important_indices].T[important_indices].T
-
-        m = len(important_indices)
+        m = len(important_features)
 
         fig = plt.figure(figsize=(n, n))
         ax = fig.add_axes([0, 0, 1, 1])
@@ -566,17 +572,20 @@ class NodeCluster:
         else:
             location = output
 
-        local_cross = self.top_local(n, no_plot=True)
-        global_cross = self.top_global(n, no_plot=True)
+        local_cross,important_local = self.top_local_table(n)
+        global_cross,important_global = self.top_global_table(n)
 
-        print(f"Saving cross ref to {location}")
+        local_html = generate_cross_reference_table(local_cross,important_local)
+        global_html = generate_cross_reference_table(global_cross,important_global)
 
-        local_cross.savefig(location + "local_cross.png", bbox_inches='tight')
-        global_cross.savefig(
-            location + "global_cross.png", bbox_inches='tight')
-
-        local_html = f'<img class="local_cross" src="{location + "local_cross.png"}" />'
-        global_html = f'<img class="global_cross" src="{location + "global_cross.png"}" />'
+        # print(f"Saving cross ref to {location}")
+        #
+        # local_cross.savefig(location + "local_cross.png", bbox_inches='tight')
+        # global_cross.savefig(
+        #     location + "global_cross.png", bbox_inches='tight')
+        #
+        # local_html = f'<img class="local_cross" src="{location + "local_cross.png"}" />'
+        # global_html = f'<img class="global_cross" src="{location + "global_cross.png"}" />'
 
         return (local_html, global_html)
 

@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
-mpl.rcParams['figure.dpi'] = 300
+mpl.rcParams['figure.dpi'] = 100
 
 
 class Prediction:
@@ -214,7 +214,7 @@ class Prediction:
                     [np.min(own_log_prob), np.min(other_log_prob)])
 
                 plt.figure(figsize=(5, 5))
-                plt.title(f"{self.forest.split_clusters[i].name()} Comparison")
+                plt.title(f"Factor {self.forest.split_clusters[i].name()} Comparison")
                 plt.scatter(own_log_prob, other_log_prob,
                             c=np.arange(-1, 1, bin_interval)[:-1], cmap='seismic')
                 plt.plot([0, lin_min], [0, lin_min], color='red', alpha=.5)
