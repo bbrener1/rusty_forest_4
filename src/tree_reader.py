@@ -135,18 +135,11 @@ class Forest:
 ########################################################################
 ########################################################################
 
-    def node_sample_encoding(self, nodes):
-
-        # ROWS: SAMPLES
-        # COLUMNS: NODES
-
-        encoding = np.zeros((len(self.samples), len(nodes)), dtype=bool)
-        for i, node in enumerate(nodes):
-            encoding[:, i] = node.encoding()
-        return encoding
 
     def node_representation(self, nodes=None, mode='gain', metric=None, pca=0):
         from sklearn.decomposition import IncrementalPCA
+
+        # ROWS ARE NODES, COLUMNS ARE WHATEVER
 
         if nodes is None:
             nodes = self.nodes()
@@ -174,7 +167,9 @@ class Forest:
         elif mode == 'mean' or mode == 'means':
             print("Mean reduction")
             encoding = self.mean_matrix(nodes)
-
+        elif mode == 'factor':
+            print("Factor matrix")
+            encoding = self.node_factor_encoding(nodes)
         else:
             raise Exception(f"Mode not recognized:{mode}")
 
@@ -221,16 +216,33 @@ class Forest:
             representation, metric=sample_metric, method='average'), no_plot=True)['leaves']
         return representation[sample_sort].T[feature_sort].T
 
+    def node_sample_encoding(self, nodes):
+
+        # ROWS: SAMPLES
+        # COLUMNS: NODES
+
+        encoding = np.zeros((len(self.samples), len(nodes)), dtype=bool)
+        for i, node in enumerate(nodes):
+            encoding[:, i] = node.encoding()
+        return encoding
+
+    def node_factor_encoding(self,nodes):
+
+        encoding = np.zeros((len(nodes),len(self.split_clusters)),dtype=bool)
+
+        for i,factor in enumerate(self.split_clusters):
+            mask = factor.node_mask()
+            encoding[:,i][mask] = True
+
+        return encoding
+
+
     def node_sister_encoding(self, nodes):
         encoding = np.zeros((len(self.samples), len(nodes)), dtype=int)
         for i, node in enumerate(nodes):
             encoding[:, i][node.sample_mask()] = 1
-            # for sample in node.samples():
-            #     encoding[sample, i] = 1
             if node.sister() is not None:
-                encoding[:, i][node.sister().sample_mask()] = 1
-                # for sample in node.sister().samples():
-                #     encoding[sample, i] = -1
+                encoding[:, i][node.sister().sample_mask()] = -1
         return encoding
 
     def absolute_gain_matrix(self, nodes):
@@ -723,7 +735,7 @@ class Forest:
 
         else:
             representation = self.node_representation(
-                nodes, mode=mode, metric=None, pca=pca)
+                nodes[stem_mask], mode=mode, metric=None, pca=pca)
 
             print("Running knn")
             knn = fast_knn(representation, k=k, metric=metric, **kwargs)
@@ -1235,33 +1247,43 @@ class Forest:
 
         return upstream_frequency, downstream_frequency
 
-    def conditional_split_probability(self):
+    # def conditional_split_probability(self):
+    #
+    #     _, down_matrix = self.directional_matrix()
+    #     total_descendents = np.sum(down_matrix, axis=1)
+    #     conditional_probability = (down_matrix.T / (total_descendents + 1)).T
+    #
+    #     return conditional_probability
 
-        _, down_matrix = self.directional_matrix()
-        total_descendents = np.sum(down_matrix, axis=1)
-        conditional_probability = (down_matrix.T / (total_descendents + 1)).T
+    # def probability_enrichment(self):
+    #
+    #     _, down_matrix = self.directional_matrix()
+    #     total_descendents = np.sum(down_matrix, axis=1)
+    #     conditional_probability = (down_matrix.T / (total_descendents + 1)).T
+    #
+    #     raw_probability = conditional_probability[0]
+    #     enrichment = conditional_probability / raw_probability
+    #
+    #     return enrichment
 
-        return conditional_probability
 
-    def probability_enrichment(self):
 
-        _, down_matrix = self.directional_matrix()
-        total_descendents = np.sum(down_matrix, axis=1)
-        conditional_probability = (down_matrix.T / (total_descendents + 1)).T
+    def path_matrix(self,nodes=None):
 
-        raw_probability = conditional_probability[0]
-        enrichment = conditional_probability / raw_probability
+        if nodes is None:
+            nodes = self.nodes()
 
-        return enrichment
+        mtx = np.zeros((len(self.split_clusters), len(nodes)))
+        for node in nodes:
+            if hasattr(node, 'split_cluster'):
+                mtx[node.split_cluster, node.index] = True
+                # for descendant in node.nodes():
+                #     mtx[node.split_cluster, descendant.index] = True
+
+        return mtx
 
     def partial_dependence(self):
-        total_nodes = self.nodes()
-        path_matrix = np.zeros((len(self.split_clusters), len(total_nodes)))
-        for node in total_nodes:
-            path_matrix[node.split_cluster, node.index] = True
-            if hasattr(node, 'split_cluster'):
-                for descendant in node.nodes():
-                    path_matrix[node.split_cluster, descendant.index] = True
+        path_matrix = self.path_matrix()
         path_covariance = np.cov(path_matrix)
         precision = np.linalg.pinv(path_covariance)
     #     return precision
@@ -1683,11 +1705,15 @@ class Forest:
             matrix[:, i] = cluster.sister_scores()
         return matrix
 
-    def global_correlations(self):
 
-        global_correlations = np.corrcoef(self.output.T)
+    def global_correlations(self,indices=None):
 
-        return global_correlations
+        if indices is None:
+            indices = self.output.shape[1]
+
+        correlations = np.corrcoef(self.output.T[indices])
+
+        return correlations
 
 
 class TruthDictionary:

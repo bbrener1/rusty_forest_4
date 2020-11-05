@@ -101,6 +101,21 @@ class Prediction:
 
         return residuals
 
+    def factor_total_error(self,factor):
+
+        self_total_error = np.zeros(len(self.forest.output_features))
+        sister_total_error = np.zeros(len(self.forest.output_features))
+        parent_total_error = np.zeros(len(self.forest.output_features))
+
+        for i,node in enumerate(factor.nodes):
+            self_total_error += np.power(self.node_residuals(node),2)
+            if node.sister() is not None:
+                sister_total_error += np.power(self.node_residuals(node.sister()),2)
+            if node.parent is not None:
+                parent_total_error += np.power(self.node_residuals(node.parent),2)
+
+        return self_total_error,sister_total_error,parent_total_error
+
     def node_feature_remaining_error(self, nodes):
 
         per_node_fraction = []

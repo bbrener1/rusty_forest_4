@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
-mpl.rcParams['figure.dpi'] = 100
+mpl.rcParams['figure.dpi'] = 10
 
 
 class NodeCluster:
@@ -226,35 +226,42 @@ class NodeCluster:
         sorted_ratios = error_ratio[ratio_sort]
 
         return sorted_features, sorted_ratios
-    #
-    # def error_ratio(self):
-    #
-    #     # We want to figure out how much of the error in a given feature is explained by the nodes in this cluster
-    #     # We want the overall ratio of error in the parents vs the error in the nodes of this cluster
-    #
-    #     parent_total_error = np.ones(len(self.forest.output_features))
-    #     sister_total_error = np.ones(len(self.forest.output_features))
-    #     self_total_error = np.ones(len(self.forest.output_features))
-    #
-    #     for node in self.nodes:
-    #         if node.parent is not None:
-    #             self_total_error += node.squared_residual_sum()
-    #             sister_total_error += node.sister().squared_residual_sum()
-    #             parent_total_error += node.parent.squared_residual_sum()
-    #
-    #     print(self_total_error)
-    #     print(sister_total_error)
-    #     print(parent_total_error)
-    #
-    #     error_ratio = (self_total_error + sister_total_error) / \
-    #         parent_total_error
-    #
-    #     ratio_sort = np.argsort(error_ratio)
-    #
-    #     sorted_features = self.forest.output_features[ratio_sort]
-    #     sorted_ratios = error_ratio[ratio_sort]
-    #
-    #     return sorted_features, sorted_ratios
+
+    def raw_error(self):
+
+        # We want to figure out how much of the error in a given feature is explained by the nodes in this cluster
+        # We want the overall ratio of error in the parents vs the error in the nodes of this cluster
+
+        parent_total_error = np.ones(len(self.forest.output_features))
+        sister_total_error = np.ones(len(self.forest.output_features))
+        self_total_error = np.ones(len(self.forest.output_features))
+
+        for node in self.nodes:
+            if node.parent is not None:
+                self_total_error += node.squared_residual_sum()
+                sister_total_error += node.sister().squared_residual_sum()
+                parent_total_error += node.parent.squared_residual_sum()
+
+        return self_total_error,sister_total_error,parent_total_error
+
+    def strict_error_ratio(self):
+
+        self_total_error,sister_total_error,parent_total_error = self.raw_error()
+
+        error_ratio = (self_total_error + sister_total_error) / \
+            parent_total_error
+
+        ratio_sort = np.argsort(error_ratio)
+
+        sorted_features = self.forest.output_features[ratio_sort]
+        sorted_ratios = error_ratio[ratio_sort]
+
+        return sorted_features, sorted_ratios
+
+    def strict_fraction_unexplained(self):
+        self_total_error,sister_total_error,parent_total_error = self.raw_error()
+
+        return np.sum(self_total_error) / np.sum(parent_total_error)
 
     def weighted_covariance(self):
         scores = self.sister_scores()
@@ -326,11 +333,14 @@ class NodeCluster:
 
         return important_features,important_values,important_indices
 
-    def local_correlations(self):
+    def local_correlations(self,indices=None):
+
+        if indices is None:
+            indices = np.arange(self.forest.output.shape[1])
 
         weights = self.sample_counts()
 
-        weighted_covariance = np.cov(self.forest.output.T, fweights=weights)
+        weighted_covariance = np.cov(self.forest.output.T[indices], fweights=weights)
         diagonal = np.diag(weighted_covariance)
         normalization = np.sqrt(np.abs(np.outer(diagonal, diagonal)))
         correlations = weighted_covariance / normalization
@@ -338,10 +348,13 @@ class NodeCluster:
         correlations[np.identity(correlations.shape[0], dtype=bool)] = 1.
         return correlations
 
-    def most_local_correlations(self, n=10):
 
-        global_correlations = self.forest.global_correlations()
-        local_correlations = self.local_correlations()
+    def most_local_correlations(self, n=10,method='mean'):
+
+        _,_,important_indices = self.important_features(n=n,method=method)
+
+        global_correlations = self.forest.global_correlations(indices=important_indices)
+        local_correlations = self.local_correlations(indices=important_indices)
 
         delta = local_correlations - global_correlations
 
@@ -375,7 +388,6 @@ class NodeCluster:
             sisters).astype(dtype=int)
         scores = (np.sum(own_encoding, axis=1) + (-1 *
                                                   np.sum(sister_encoding, axis=1))) / own_encoding.shape[1]
-
         return scores
 
     def predict_sister_scores(self, node_sample_encoding):
@@ -398,17 +410,6 @@ class NodeCluster:
 
         return scores
 
-    def absolute_sister_scores(self):
-        own = self.nodes
-        sisters = [sister for n in own for sister in [
-            n.sister(), ] if sister is not None]
-        own_encoding = self.forest.node_sample_encoding(own).astype(dtype=int)
-        sister_encoding = self.forest.node_sample_encoding(
-            sisters).astype(dtype=int)
-        scores = (np.sum(own_encoding, axis=1) +
-                  np.sum(sister_encoding, axis=1)) / own_encoding.shape[1]
-
-        return scores
 
 ##############################################################################
 # Html methods
@@ -490,8 +491,8 @@ class NodeCluster:
     def top_local_table(self,n):
         changed_vs_sister, fold_vs_sister = self.changed_absolute_sister()
         important_features, important_folds, important_indices = self.important_features(n)
-        local_correlations = self.local_correlations()
-        selected_local = local_correlations[important_indices].T[important_indices].T
+
+        selected_local = self.local_correlations(indices=important_indices)
 
         selected_local = np.around(selected_local,decimals=3)
 
@@ -500,8 +501,7 @@ class NodeCluster:
     def top_global_table(self,n):
         changed_vs_sister, fold_vs_sister = self.changed_absolute_sister()
         important_features, important_folds, important_indices = self.important_features(n)
-        global_correlations = self.forest.global_correlations()
-        selected_global = global_correlations[important_indices].T[important_indices].T
+        selected_global = self.forest.global_correlations(indices=important_indices)
 
         selected_global = np.around(selected_global,decimals=3)
 
@@ -572,20 +572,23 @@ class NodeCluster:
         else:
             location = output
 
-        local_cross,important_local = self.top_local_table(n)
-        global_cross,important_global = self.top_global_table(n)
-
-        local_html = generate_cross_reference_table(local_cross,important_local)
-        global_html = generate_cross_reference_table(global_cross,important_global)
-
-        # print(f"Saving cross ref to {location}")
+        # local_cross,important_local = self.top_local_table(n)
+        # global_cross,important_global = self.top_global_table(n)
         #
-        # local_cross.savefig(location + "local_cross.png", bbox_inches='tight')
-        # global_cross.savefig(
-        #     location + "global_cross.png", bbox_inches='tight')
-        #
-        # local_html = f'<img class="local_cross" src="{location + "local_cross.png"}" />'
-        # global_html = f'<img class="global_cross" src="{location + "global_cross.png"}" />'
+        # local_html = generate_cross_reference_table(local_cross,important_local)
+        # global_html = generate_cross_reference_table(global_cross,important_global)
+
+        local_cross = self.top_local(n)
+        global_cross = self.top_global(n)
+
+        print(f"Saving cross ref to {location}")
+
+        local_cross.savefig(location + "local_cross.png", bbox_inches='tight')
+        global_cross.savefig(
+            location + "global_cross.png", bbox_inches='tight')
+
+        local_html = f'<img class="local_cross" src="{location + "local_cross.png"}" />'
+        global_html = f'<img class="global_cross" src="{location + "global_cross.png"}" />'
 
         return (local_html, global_html)
 

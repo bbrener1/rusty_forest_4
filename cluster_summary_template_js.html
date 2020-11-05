@@ -184,22 +184,22 @@
     document.getElementById("changed_vs_all").style.display = "none";
     document.getElementById("error_vs_parent").style.display = "grid"
   }
-  function globalCross(){
-    document.getElementById("cross_ref_local").style.display = "none";
-    document.getElementById("cross_ref_global").style.display = "block";
-  }
-  function localCross(){
-    document.getElementById("cross_ref_local").style.display = "block";
-    document.getElementById("cross_ref_global").style.display = "none";
-  }
   // function globalCross(){
-  //   document.getElementById("local_cross").style.display = "none";
-  //   document.getElementById("global_cross").style.display = "block";
+  //   document.getElementById("cross_ref_local").style.display = "none";
+  //   document.getElementById("cross_ref_global").style.display = "block";
   // }
   // function localCross(){
-  //   document.getElementById("local_cross").style.display = "block";
-  //   document.getElementById("global_cross").style.display = "none";
+  //   document.getElementById("cross_ref_local").style.display = "block";
+  //   document.getElementById("cross_ref_global").style.display = "none";
   // }
+  function globalCross(){
+    document.getElementById("local_cross").style.display = "none";
+    document.getElementById("global_cross").style.display = "block";
+  }
+  function localCross(){
+    document.getElementById("local_cross").style.display = "block";
+    document.getElementById("global_cross").style.display = "none";
+  }
   </script>
 </head>
 <body>
@@ -289,14 +289,14 @@
 
 
   <div id="cross_ref" class="panel cross_ref">
-    <div id="cross_ref_local">
+    <!-- <div id="cross_ref_local">
     <h2 style="text-align:center;" class="cross_ref_header"> Feature Correlations (Local) </h2>
     </div>
     <div id="cross_ref_global" style="display:none">
     <h2 style="text-align:center;" class="cross_ref_header"> Feature Correlations (Glob) </h2>
-    </div>
-    <!-- <img id="local_cross" class="cross_ref_image" src="local_cross.png" />
-    <img id="global_cross" class="cross_ref_image" src="global_cross.png" style="display:none" /> -->
+    </div> -->
+    <img id="local_cross" class="cross_ref_image" src="local_cross.png" />
+    <img id="global_cross" class="cross_ref_image" src="global_cross.png" style="display:none" />
   </div>
 
   <!-- <div id="cross_ref" class="panel cross_ref">
