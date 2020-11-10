@@ -185,40 +185,30 @@ class NodeCluster:
 
         return top_features, factor_model, output_model
 
-    def error_ratio(self, sample_matrix=None, scores=None):
+    def error_ratio(self):
 
         # We would like to weigh the observed error by by the total of the cluster and its sisters, then by samples in the cluster only
         # The ratio should give us an idea of how much of the variance is explained by the cluster split.
 
-        if sample_matrix is None:
-            sample_matrix = self.forest.output
-            scores = self.sister_scores()
-        if scores is None:
-            scores = self.sister_scores()
+        sample_matrix = self.forest.output
 
-        positive = scores.copy()
-        positive[scores < 0] = 0
+        self_scores = self.sample_scores()
 
-        absolute = np.abs(scores)
-
-        positive_mean = np.mean(self.forest.mean_matrix(self.nodes), axis=0)
-        absolute_mean = np.mean(
+        self_mean = np.mean(self.forest.mean_matrix(self.nodes), axis=0)
+        parent_mean = np.mean(
             self.forest.mean_matrix(self.parents()), axis=0)
-        # positive_mean = np.average(sample_matrix, axis=0, weights=positive)
-        # absolute_mean = np.average(sample_matrix, axis=0, weights=absolute)
 
-        positive_error = np.dot(
-            np.power(sample_matrix - positive_mean, 2).T, positive)
-        absolute_error = np.dot(
-            np.power(sample_matrix - absolute_mean, 2).T, positive)
+        self_error = np.dot(
+            np.power(sample_matrix - self_mean, 2).T, self_scores)
+        parent_error = np.dot(
+            np.power(sample_matrix - parent_mean, 2).T, self_scores)
 
         print(
-            f"Error: P:{positive_error},A:{absolute_error}")
+            f"Error: P:{self_error},A:{parent_error}")
 
-        print(
-            f"Error Ratio:{positive_error / absolute_error}")
+        error_ratio = (self_error + 1) / (parent_error + 1)
 
-        error_ratio = (positive_error + 1) / (absolute_error + 1)
+        print(f"Error ratio: {error_ratio}")
 
         ratio_sort = np.argsort(error_ratio)
 
@@ -227,28 +217,31 @@ class NodeCluster:
 
         return sorted_features, sorted_ratios
 
-    def raw_error(self):
-
-        # We want to figure out how much of the error in a given feature is explained by the nodes in this cluster
-        # We want the overall ratio of error in the parents vs the error in the nodes of this cluster
-
-        parent_total_error = np.ones(len(self.forest.output_features))
-        sister_total_error = np.ones(len(self.forest.output_features))
-        self_total_error = np.ones(len(self.forest.output_features))
-
-        for node in self.nodes:
-            if node.parent is not None:
-                self_total_error += node.squared_residual_sum()
-                sister_total_error += node.sister().squared_residual_sum()
-                parent_total_error += node.parent.squared_residual_sum()
-
-        return self_total_error,sister_total_error,parent_total_error
+    # def raw_error(self):
+    #
+    #     # We want to figure out how much of the error in a given feature is explained by the nodes in this cluster
+    #     # We want the overall ratio of error in the parents vs the error in the nodes of this cluster
+    #
+    #     parent_total_error = np.zeros(len(self.forest.output_features))
+    #     sister_total_error = np.zeros(len(self.forest.output_features))
+    #     self_total_error = np.zeros(len(self.forest.output_features))
+    #
+    #     for node in self.nodes:
+    #         if node.parent is not None:
+    #             self_total_error += node.squared_residual_sum()
+    #             sister_total_error += node.sister().squared_residual_sum()
+    #             parent_total_error += node.parent.squared_residual_sum()
+    #
+    #     return self_total_error,sister_total_error,parent_total_error
 
     def strict_error_ratio(self):
 
-        self_total_error,sister_total_error,parent_total_error = self.raw_error()
+        self_total_error,parent_total_error = self.raw_error()
 
-        error_ratio = (self_total_error + sister_total_error) / \
+        self_total_error += 1
+        parent_total_error += 1
+
+        error_ratio = self_total_error / \
             parent_total_error
 
         ratio_sort = np.argsort(error_ratio)
@@ -259,9 +252,22 @@ class NodeCluster:
         return sorted_features, sorted_ratios
 
     def strict_fraction_unexplained(self):
-        self_total_error,sister_total_error,parent_total_error = self.raw_error()
+        self_total_error,parent_total_error = self.raw_error()
 
-        return np.sum(self_total_error) / np.sum(parent_total_error)
+        return (np.sum(self_total_error) + 1)  / (np.sum(parent_total_error) + 1)
+
+    def raw_error(self):
+        self_total_error = np.zeros(len(self.forest.output_features))
+        parent_total_error = np.zeros(len(self.forest.output_features))
+
+        for node in self.nodes:
+            if node.parent is not None:
+                self_error,parent_error = node.squared_residual_doublet()
+                self_total_error += self_error
+                parent_total_error += parent_error
+
+        return self_total_error,parent_total_error
+
 
     def weighted_covariance(self):
         scores = self.sister_scores()
@@ -375,6 +381,10 @@ class NodeCluster:
     def sample_scores(self):
         cluster_encoding = self.encoding()
         return np.sum(cluster_encoding, axis=1) / (cluster_encoding.shape[1] + 1)
+
+    def parent_scores(self):
+        parent_encoding = self.forest.node_representation(self.parents(),mode='sample')
+        return np.sum(parent_encoding, axis=1) / (parent_encoding.shape[1] + 1)
 
     def sample_counts(self):
         encoding = self.encoding()

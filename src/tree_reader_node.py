@@ -182,6 +182,20 @@ class Node:
 
         return residuals
 
+    def mean_residual_doublet(self):
+        counts = self.node_counts()
+        self_means = self.means()
+        if self.parent is not None:
+            parent_means = self.parent.means()
+        else:
+            parent_means = np.zeros(len(self_means.shape))
+
+        self_residuals = counts - self_means
+        parent_residuals = counts - parent_means
+
+        return self_residuals,parent_residuals
+
+
     def squared_residual_sum(self):
         if hasattr(self, 'srs_cache'):
             return self.srs_cache
@@ -191,6 +205,13 @@ class Node:
             if self.cache:
                 self.srs_cache = srs
             return srs
+
+    def squared_residual_doublet(self):
+        self_residuals,parent_residuals = self.mean_residual_doublet()
+        self_srs = np.sum(np.power(self_residuals,2),axis=0)
+        parent_srs = np.sum(np.power(parent_residuals,2),axis=0)
+
+        return self_srs,parent_srs
 
     def dispersions(self, mode='mean'):
 

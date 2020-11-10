@@ -3,6 +3,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
+from scipy.stats import entropy
+from scipy.stats import ks_2samp
+from scipy.stats import ranksums
+from scipy.stats import mannwhitneyu
+from scipy.stats import t
+
+
 mpl.rcParams['figure.dpi'] = 100
 
 
@@ -15,7 +22,6 @@ class Prediction:
         self.nse = None
         self.nme = None
         self.nae = None
-        self.nwp = None
         self.smc = None
         self.factors = None
 
@@ -34,6 +40,13 @@ class Prediction:
         if self.nae is None:
             self.nae = self.forest.mean_additive_matrix(self.forest.nodes())
         return self.nae
+    #
+    # def node_srs_encoding(self):
+    #     if self.nsrs is None:
+    #         nsrs = np.zeros((len(self.forest.nodes()),self.mtx.shape[1]))
+    #
+    #         for node in self.forest.nodes():
+    #             srs = np.sum(np.power(self.node_residuals(node),2),axis=0)
 
     def additive_prediction(self, depth=8):
         encoding = self.node_sample_encoding().T
@@ -101,20 +114,165 @@ class Prediction:
 
         return residuals
 
+    def node_fraction(self, node):
+
+        self_samples = np.sum(self.node_sample_encoding[node.index])
+        if node.parent is None:
+            parent_samples = self_samples
+        else:
+            parent_samples = np.sum(self.node_sample_encoding[node.parent.index])
+        return float(self_samples)/float(parent_samples)
+
+    def node_mse(self,node):
+
+        residuals = self.node_residuals(node)
+
+        return np.sum(np.power(residuals,2)) / (residuals.shape[0] * residuals.shape[1])
+
+    def node_residual_doublet(self,node):
+
+        truth = self.matrix
+
+        sample_predictions = self.node_sample_encoding()[node.index]
+
+        self_predictions = self.node_mean_encoding()[node.index]
+        self_residuals = truth[sample_predictions] - self_predictions
+
+        if node.parent is not None:
+            parent_predictions = self.node_mean_encoding()[node.parent.index]
+        else:
+            parent_predictions = np.zeros(self_predictions.shape)
+        parent_residuals = truth[sample_predictions] - parent_predictions
+
+        return self_residuals,parent_residuals
+
+    def node_feature_error(self,node):
+        residuals = self.node_residuals(node)
+        return np.sum(np.power(residuals,2),axis=0)
+
     def factor_total_error(self,factor):
 
         self_total_error = np.zeros(len(self.forest.output_features))
-        sister_total_error = np.zeros(len(self.forest.output_features))
         parent_total_error = np.zeros(len(self.forest.output_features))
 
         for i,node in enumerate(factor.nodes):
-            self_total_error += np.power(self.node_residuals(node),2)
-            if node.sister() is not None:
-                sister_total_error += np.power(self.node_residuals(node.sister()),2)
-            if node.parent is not None:
-                parent_total_error += np.power(self.node_residuals(node.parent),2)
+            if i % 10 == 0:
+                print(f"{i}/{len(factor.nodes)}",end='\r')
 
-        return self_total_error,sister_total_error,parent_total_error
+            self_residuals,parent_residuals = self.node_residual_doublet(node)
+
+            self_total_error += np.sum(np.power(self_residuals,2),axis=0)
+            parent_total_error += np.sum(np.power(parent_residuals,2),axis=0)
+
+        print("\n",end='')
+
+        return self_total_error,parent_total_error
+
+    def jackknife_factor_mse(self,factor):
+
+        node_mses = np.array([self.node_mse(n) for n in factor.nodes])
+
+        n = len(node_mses)
+
+        total = np.sum(node_mses)
+        mse_estimate = total / n
+
+        excluded_sum = total - node_mses
+        excluded_means = excluded_sum / (n - 1)
+        variance_estimate = ((n - 1) / n) * np.sum(np.power(excluded_means - mse_estimate,2))
+
+        return mse_estimate,variance_estimate
+
+
+    def compare_factor_fractions(self,other,factor):
+
+        print(f"Comparing Split Fraction for Factor {factor.name()}")
+
+        self_fractions = np.array([self.node_fraction(n) for n in factor.nodes])
+        other_fractions = np.array([other.node_fraction(n) for n in factor.nodes])
+
+        print(f"Self: {np.mean(self_fractions)}")
+        print(f"Other: {np.mean(other_fractions)}")
+
+        result = mannwhitneyu(self_fractions,other_fractions)
+        print(result)
+
+        return result
+
+    def compare_factor_residuals(self,other,factor):
+        self_factor_mse,self_factor_mse_variance = self.jackknife_factor_mse(factor)
+        other_factor_mse,other_factor_mse_variance = other.jackknife_factor_mse(factor)
+
+        self_mse_std = np.sqrt(self_factor_mse_variance)
+        factor_z = (self_factor_mse - other_factor_mse) / self_mse_std
+        factor_p = t.pdf(factor_z,len(factor_object.nodes) - 1)
+
+        print(f"Self Factor MSE:{self_factor_mse}, +/- {self_factor_mse_variance}")
+        print(f"Other Factor MSE:{other_factor_mse}")
+
+        return (factor_z,factor_p)
+
+    def compare_factor_fvu(self,other,factor):
+
+        print(f"Estimating FVU for Factor {factor.name()}")
+
+        self_self,self_parent = self.factor_total_error(factor)
+        other_self,other_parent = other.factor_total_error(factor)
+
+        self_fvu = np.sum(self_self)/ np.sum(self_parent)
+        other_fvu = np.sum(other_self)/ np.sum(other_parent)
+
+        print(f"Self FVU: {self_fvu}")
+        print(f"Other FVU: {other_fvu}")
+
+        return (self_fvu, other_fvu)
+
+    def compare_factor_values(self,other,factor,mode="mann_whitney_u",no_plot=False):
+
+        print(f"Now comparing values for Factor {factor.name()}:")
+
+        own_f = self.factor_matrix()[factor.id]
+        other_f = other.factor_matrix()[factor.id]
+
+        own_hist = np.histogram(
+            own_f, bins=np.arange(-1, 1, bin_interval))[0] + 1
+        other_hist = np.histogram(
+            other_f, bins=np.arange(-1, 1, bin_interval))[0] + 1
+        own_prob = own_hist / np.sum(own_hist)
+        other_prob = other_hist / np.sum(other_hist)
+        forward_entropy = entropy(own_prob, qk=other_prob)
+        reverse_entropy = entropy(other_prob, qk=own_prob)
+        symmetric_entropy = (forward_entropy + reverse_entropy) / 2
+        print(f"Entropy: {symmetric_entropy}")
+
+        if not no_plot:
+            own_log_prob = np.log(own_hist / np.sum(own_hist))
+            other_log_prob = np.log(other_hist / np.sum(other_hist))
+
+            lin_min = np.min(
+                [np.min(own_log_prob), np.min(other_log_prob)])
+
+            plt.figure(figsize=(5, 5))
+            plt.title(f"Factor {self.forest.split_clusters[i].name()} Comparison")
+            plt.scatter(own_log_prob, other_log_prob,
+                        c=np.arange(-1, 1, bin_interval)[:-1], cmap='seismic')
+            plt.plot([0, lin_min], [0, lin_min], color='red', alpha=.5)
+            plt.xlabel("Factor Frequency, Self (Log Probability)")
+            plt.ylabel("Factor Frequency, Other (Log Probability)")
+            plt.colorbar(label="Factor Value")
+            plt.show()
+
+
+        if mode == 'mann_whitney_u':
+            mwu = mannwhitneyu(own_f, other_f)
+            print(f"Mann-Whitney U: {mwu}")
+            return mwu,symmetric_entropy
+        elif mode == 'kolmogorov_smirnov':
+            ks = ks_2samp(own_f, other_f)
+            print(f"Kolmogorov-Smirnov: {ks}")
+            return ks,symmetric_entropy
+        else:
+            raise Exception(f"Mode not recognized: {mode}")
 
     def node_feature_remaining_error(self, nodes):
 
@@ -165,14 +323,16 @@ class Prediction:
         return self.smc
 
     def factor_matrix(self):
-        predicted_encoding = self.node_sample_encoding()
-        predicted_factors = np.zeros(
-            (self.matrix.shape[0], len(self.forest.split_clusters)))
-        predicted_factors[:, 0] = 1.
-        for i in range(1, len(self.forest.split_clusters[0:])):
-            predicted_factors[:, i] = self.forest.split_clusters[i].predict_sister_scores(
-                predicted_encoding)
-        return predicted_factors
+        if self.factors is None:
+            predicted_encoding = self.node_sample_encoding()
+            predicted_factors = np.zeros(
+                (self.matrix.shape[0], len(self.forest.split_clusters)))
+            predicted_factors[:, 0] = 1.
+            for i in range(1, len(self.forest.split_clusters[0:])):
+                predicted_factors[:, i] = self.forest.split_clusters[i].predict_sister_scores(
+                    predicted_encoding)
+            self.factors = predicted_factors
+        return self.factors
 
     def compare_sample_clusters(self, other):
 
@@ -194,51 +354,55 @@ class Prediction:
 
     def compare_factors(self, other, no_plot=False, log=True, bins=20):
 
-        from scipy.stats import entropy
-        from scipy.stats import ks_2samp
-        from scipy.stats import ranksums
+        def nice(x,n=3):
+            return x
+            # return np.format_float_scientific(x,precision=n,trim='-')
 
         own_factors = self.factor_matrix()
         other_factors = other.factor_matrix()
 
-        symmetric_entropy = []
         bin_interval = 2. / bins
 
-        for i, (own_f, other_f) in enumerate(zip(own_factors.T, other_factors.T)):
-            own_hist = np.histogram(
-                own_f, bins=np.arange(-1, 1, bin_interval))[0] + 1
-            other_hist = np.histogram(
-                other_f, bins=np.arange(-1, 1, bin_interval))[0] + 1
-            own_prob = own_hist / np.sum(own_hist)
-            other_prob = other_hist / np.sum(other_hist)
-        #     print("##############################")
-            forward_entropy = entropy(own_prob, qk=other_prob)
-            reverse_entropy = entropy(other_prob, qk=own_prob)
-            average_entropy = (forward_entropy + reverse_entropy) / 2
-            symmetric_entropy.append(average_entropy)
-            print(f"{i} Entropy: {average_entropy}")
-            ks = ks_2samp(own_f, other_f)
-            print(f"Kolmogorov-Smirnov: {ks}")
-            mwu = ranksums(own_f, other_f)
-            print(f"Rank Sum: {mwu}")
-            if not no_plot:
-                own_log_prob = np.log(own_hist / np.sum(own_hist))
-                other_log_prob = np.log(other_hist / np.sum(other_hist))
+        fvu_deltas = []
+        factor_ps = []
 
-                lin_min = np.min(
-                    [np.min(own_log_prob), np.min(other_log_prob)])
+        factor_mwus = []
+        factor_symmetric_entropies = []
 
-                plt.figure(figsize=(5, 5))
-                plt.title(f"Factor {self.forest.split_clusters[i].name()} Comparison")
-                plt.scatter(own_log_prob, other_log_prob,
-                            c=np.arange(-1, 1, bin_interval)[:-1], cmap='seismic')
-                plt.plot([0, lin_min], [0, lin_min], color='red', alpha=.5)
-                plt.xlabel("Factor Frequency, Self (Log Probability)")
-                plt.ylabel("Factor Frequency, Other (Log Probability)")
-                plt.colorbar(label="Factor Value")
-                plt.show()
 
-        return symmetric_entropy
+        for i,factor_object in enumerate(self.forest.split_clusters):
+
+            if i == 0:
+                continue
+
+            print("#########################################")
+            print(f"Factor {factor_object.name()}")
+            print("#########################################")
+
+            factor_z,factor_p = self.compare_factor_residuals(other,factor_object)
+
+            print(f"Student's T: Test Statistic = {nice(factor_z,3)}, p = {nice(factor_p,3)}")
+
+            factor_ps.append(factor_p)
+
+            self_fvu,other_fvu = self.compare_factor_fvu(other,factor_object)
+            fvu_deltas.append(other_fvu - self_fvu)
+
+            print("Now comparing factor values:")
+
+            mwu,symmetric_entropy = self.compare_factor_values(other,factor_object)
+
+            factor_mwus.append(mwu)
+            factor_symmetric_entropies.append(symmetric_entropy)
+
+        result = {
+            "P values":factor_ps,
+            "FVU Deltas":fvu_deltas,
+            "Mann-Whitney U":factor_mwus,
+            "Symmetric Entropy":factor_symmetric_entropies,
+        }
+
+        return result
 
     def prediction_report(self, truth=None, n=10, mode="additive_mean", no_plot=False):
 
@@ -313,6 +477,7 @@ class Prediction:
 
         return jackknife_variance
 
+
     def feature_remaining_error(self, truth=None, mode='additive_mean'):
 
         null_square_residuals = np.power(self.null_residuals(truth=truth), 2)
@@ -330,10 +495,7 @@ class Prediction:
         return 1 - remaining_error
 
     def compare_feature_residuals(self, other, mode='rank_sum', no_plot=True):
-        from scipy.stats import ranksums
-        from scipy.stats import mannwhitneyu
-        from scipy.stats import ks_2samp
-        from scipy.stats import t
+
 
         self_residuals = self.residuals()
         other_residuals = other.residuals()
@@ -358,7 +520,7 @@ class Prediction:
             jackknife_std = np.sqrt(self.jackknife_feature_mse_variance())
             jackknife_z = delta_mse / jackknife_std
 
-            prob = t.pdf(jackknife_z, len(self.forest.samples))
+            prob = t.pdf(jackknife_z, len(self.forest.samples) - 1)
 
             results = list(zip(jackknife_z, prob))
 

@@ -36,6 +36,7 @@ from scipy.cluster.hierarchy import dendrogram, linkage
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
+
 mpl.rcParams['figure.dpi'] = 100
 
 
@@ -69,6 +70,34 @@ class Forest:
         for i, node in enumerate(self.nodes()):
             node.index = i
 
+
+########################################################################
+########################################################################
+
+# Pool methods
+
+########################################################################
+########################################################################
+
+
+    # A method that allows one to summon a multiprocessing pool general to the forest
+
+    def pool(self):
+        if hasattr(self,'pool'):
+            if self.pool_object is not None:
+                return self.pool_object
+
+        else:
+            pool_object = Pool()
+            self.pool_object = pool_object
+            return self.pool_object
+
+    def release_pool(self):
+        self.pool_object.terminate()
+
+    def __del__(self):
+        self.release_pool()
+        del self
 
 ########################################################################
 ########################################################################
@@ -313,6 +342,9 @@ class Forest:
 
     def backup(self, location):
         print("Saving forest")
+
+        # We need to let go of the pool to back up to disk
+        self.pool_object = None
         print(location)
         try:
             with open(location, mode='bw') as f:
