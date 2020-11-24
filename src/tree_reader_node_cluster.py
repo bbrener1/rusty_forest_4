@@ -6,8 +6,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
-mpl.rcParams['figure.dpi'] = 10
+# mpl.rcParams['figure.dpi'] = 10
 
+DPI_SET = 100
 
 class NodeCluster:
 
@@ -588,14 +589,18 @@ class NodeCluster:
         # local_html = generate_cross_reference_table(local_cross,important_local)
         # global_html = generate_cross_reference_table(global_cross,important_global)
 
+        print("Generating top local")
+
         local_cross = self.top_local(n)
+
+        print("Generating top global")
         global_cross = self.top_global(n)
 
         print(f"Saving cross ref to {location}")
 
-        local_cross.savefig(location + "local_cross.png", bbox_inches='tight')
+        local_cross.savefig(location + "local_cross.png", bbox_inches='tight', dpi=DPI_SET)
         global_cross.savefig(
-            location + "global_cross.png", bbox_inches='tight')
+            location + "global_cross.png", bbox_inches='tight', dpi=DPI_SET)
 
         local_html = f'<img class="local_cross" src="{location + "local_cross.png"}" />'
         global_html = f'<img class="global_cross" src="{location + "global_cross.png"}" />'
@@ -618,9 +623,11 @@ class NodeCluster:
 
         # This function puts the sister score image in the appropriate location (we discard its return string, not relevant here)
 
+        print("Rendering scores")
+
         self.html_sister_scores(output=output)
         self.html_sample_scores(output=output)
-        self.html_cross_reference(n=n, output=output)
+        # self.html_cross_reference(n=n, output=output)
 
         with open(html_location + "cluster_summary_template_js.html", 'w') as html_file:
             json_string = js_wrap("attributes", self.json_cluster_summary(n=n))
@@ -655,7 +662,7 @@ class NodeCluster:
         else:
             location = output
 
-        forest_coordinates = self.forest.coordinates()
+        forest_coordinates = self.forest.coordinates(no_plot=True)
         sister_scores = self.sister_scores()
         plt.figure()
         plt.title(
@@ -665,7 +672,7 @@ class NodeCluster:
         plt.colorbar()
         plt.ylabel("tSNE Coordinates (AU)")
         plt.xlabel("tSNE Coordinates (AU)")
-        plt.savefig(location + "sister_map.png")
+        plt.savefig(location + "sister_map.png",dpi=DPI_SET)
 
         html = f'<img class="sister_score" src="{location + "sister_map.png"}" />'
 
@@ -678,7 +685,7 @@ class NodeCluster:
         else:
             location = output
 
-        forest_coordinates = self.forest.coordinates()
+        forest_coordinates = self.forest.coordinates(no_plot=True)
         sample_scores = self.sample_scores()
         plt.figure()
         plt.title(f"Frequency of Samples In {self.name()}")
@@ -687,7 +694,7 @@ class NodeCluster:
         plt.colorbar()
         plt.ylabel("tSNE Coordinates (AU)")
         plt.xlabel("tSNE Coordinates (AU)")
-        plt.savefig(location + "score_map.png")
+        plt.savefig(location + "score_map.png", dpi=DPI_SET)
 
         html = f'<img class="score_map" src="{location + "score_map.png"}" />'
 

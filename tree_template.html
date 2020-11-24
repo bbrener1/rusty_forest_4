@@ -183,15 +183,15 @@
     }
 
     function decorateNodesFeatures() {
-      $(".node_container").each(function (index,node) {
-        let html = `<a href="./${index}/cluster_summary_template_js.html">`;
-        html += `<h5 class="node_header">Cluster ${index}</h5>`;
-        html += `<h3 class="feature_header">Upregulated</h3>`;
-        html += `<div class="feature_table">${summaries[`cluster_${index}`].upregulatedHtml}</div>`;
-        html += `<h3 class="feature_header">Downregulated</h3>`;
-        html += `<div class="feature_table">${summaries[`cluster_${index}`].downregulatedHtml}</div>`;
-        html += '</a>';
-        node.innerHTML = html;
+      // $(".node_container").each(function (index,node) {
+      //   let html = `<a href="./${index}/cluster_summary_template_js.html">`;
+      //   html += `<h5 class="node_header">Cluster ${index}</h5>`;
+      //   html += `<h3 class="feature_header">Upregulated</h3>`;
+      //   html += `<div class="feature_table">${summaries[`cluster_${index}`].upregulatedHtml}</div>`;
+      //   html += `<h3 class="feature_header">Downregulated</h3>`;
+      //   html += `<div class="feature_table">${summaries[`cluster_${index}`].downregulatedHtml}</div>`;
+      //   html += '</a>';
+      //   node.innerHTML = html;
       });
     }
 

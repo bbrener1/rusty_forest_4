@@ -116,11 +116,11 @@ class Prediction:
 
     def node_fraction(self, node):
 
-        self_samples = np.sum(self.node_sample_encoding[node.index])
+        self_samples = np.sum(self.node_sample_encoding()[node.index])
         if node.parent is None:
             parent_samples = self_samples
         else:
-            parent_samples = np.sum(self.node_sample_encoding[node.parent.index])
+            parent_samples = np.sum(self.node_sample_encoding()[node.parent.index])
         return float(self_samples)/float(parent_samples)
 
     def node_mse(self,node):
@@ -198,14 +198,20 @@ class Prediction:
         print(result)
 
         return result
+    #
+    # def compare_factor_features(self,other,factor):
+
 
     def compare_factor_residuals(self,other,factor):
+
+        print(f"Comparing residuals for Factor {factor.name()}")
+
         self_factor_mse,self_factor_mse_variance = self.jackknife_factor_mse(factor)
         other_factor_mse,other_factor_mse_variance = other.jackknife_factor_mse(factor)
 
         self_mse_std = np.sqrt(self_factor_mse_variance)
         factor_z = (self_factor_mse - other_factor_mse) / self_mse_std
-        factor_p = t.pdf(factor_z,len(factor_object.nodes) - 1)
+        factor_p = t.pdf(factor_z,len(factor.nodes) - 1)
 
         print(f"Self Factor MSE:{self_factor_mse}, +/- {self_factor_mse_variance}")
         print(f"Other Factor MSE:{other_factor_mse}")
@@ -225,9 +231,22 @@ class Prediction:
         print(f"Self FVU: {self_fvu}")
         print(f"Other FVU: {other_fvu}")
 
+        print(f"Self COD: {1-self_fvu}")
+        print(f"Other COD: {1-other_fvu}")
+
         return (self_fvu, other_fvu)
 
-    def compare_factor_values(self,other,factor,mode="mann_whitney_u",no_plot=False):
+    def compare_factor_values(
+            self,
+            other,
+            factor,
+            mode="mann_whitney_u",
+            no_plot=False,
+            bins=100,
+            log=True
+        ):
+
+        bin_interval = 2.0 / bins
 
         print(f"Now comparing values for Factor {factor.name()}:")
 
@@ -253,7 +272,7 @@ class Prediction:
                 [np.min(own_log_prob), np.min(other_log_prob)])
 
             plt.figure(figsize=(5, 5))
-            plt.title(f"Factor {self.forest.split_clusters[i].name()} Comparison")
+            plt.title(f"Factor {factor.name()} Comparison")
             plt.scatter(own_log_prob, other_log_prob,
                         c=np.arange(-1, 1, bin_interval)[:-1], cmap='seismic')
             plt.plot([0, lin_min], [0, lin_min], color='red', alpha=.5)
@@ -352,23 +371,13 @@ class Prediction:
         plt.show()
         pass
 
-    def compare_factors(self, other, no_plot=False, log=True, bins=20):
-
-        def nice(x,n=3):
-            return x
-            # return np.format_float_scientific(x,precision=n,trim='-')
-
-        own_factors = self.factor_matrix()
-        other_factors = other.factor_matrix()
-
-        bin_interval = 2. / bins
+    def compare_factors(self, other, bins=100):
 
         fvu_deltas = []
         factor_ps = []
 
         factor_mwus = []
         factor_symmetric_entropies = []
-
 
         for i,factor_object in enumerate(self.forest.split_clusters):
 
@@ -381,19 +390,19 @@ class Prediction:
 
             factor_z,factor_p = self.compare_factor_residuals(other,factor_object)
 
-            print(f"Student's T: Test Statistic = {nice(factor_z,3)}, p = {nice(factor_p,3)}")
+            print(f"Student's T: Test Statistic = {factor_z}, p = {factor_p}")
 
             factor_ps.append(factor_p)
 
             self_fvu,other_fvu = self.compare_factor_fvu(other,factor_object)
             fvu_deltas.append(other_fvu - self_fvu)
 
-            print("Now comparing factor values:")
-
-            mwu,symmetric_entropy = self.compare_factor_values(other,factor_object)
+            mwu,symmetric_entropy = self.compare_factor_values(other,factor_object,bins=bins)
 
             factor_mwus.append(mwu)
             factor_symmetric_entropies.append(symmetric_entropy)
+
+            fraction_mwu = self.compare_factor_fractions(other,factor_object)
 
         result = {
             "P values":factor_ps,
