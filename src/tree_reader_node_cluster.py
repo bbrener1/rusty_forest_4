@@ -384,8 +384,11 @@ class NodeCluster:
         return np.sum(cluster_encoding, axis=1) / (cluster_encoding.shape[1] + 1)
 
     def parent_scores(self):
-        parent_encoding = self.forest.node_representation(self.parents(),mode='sample')
-        return np.sum(parent_encoding, axis=1) / (parent_encoding.shape[1] + 1)
+        if len(self.parents()) > 0:
+            parent_encoding = self.forest.node_representation(self.parents(),mode='sample')
+        else:
+            parent_encoding = self.forest.node_representation(self.nodes,mode='sample')
+        return np.sum(parent_encoding, axis=0) / (parent_encoding.shape[0] + 1)
 
     def sample_counts(self):
         encoding = self.encoding()

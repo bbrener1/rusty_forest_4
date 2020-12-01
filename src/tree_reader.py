@@ -1451,7 +1451,11 @@ class Forest:
         elif mode == "samples":
             cluster_values = np.array([c.sample_scores()
                                        for c in self.split_clusters])
-            distances = squareform(1. - pdist(cluster_values, metric="cosine"))
+            parent_values = np.array([c.parent_scores() for c in self.split_clusters])
+            print(parent_values.shape)
+            distances = 1. - cdist(parent_values,cluster_values,metric='cosine')
+            # distances = 1. - cdist(cluster_values,sister_values,metric='cosine')
+            # distances = squareform(1. - pdist(cluster_values, metric="cosine"))
         else:
             raise Exception(f"Not a valid mode: {mode}")
 
