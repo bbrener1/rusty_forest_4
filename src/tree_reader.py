@@ -1745,7 +1745,7 @@ class Forest:
     def global_correlations(self,indices=None):
 
         if indices is None:
-            indices = self.output.shape[1]
+            indices = np.arange(self.output.shape[1])
 
         correlations = np.corrcoef(self.output.T[indices])
 

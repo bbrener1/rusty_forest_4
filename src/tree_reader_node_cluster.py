@@ -368,7 +368,7 @@ class NodeCluster:
         ranks = np.argsort(np.abs(delta.flatten()))
 
         tiled_indices = np.tile(
-            np.arange(delta.shape[0]), ((delta.shape[0]), 1))
+            important_indices, ((delta.shape[0]), 1))
 
         ranked = list(zip(tiled_indices.flatten()[
             ranks], tiled_indices.T.flatten()[ranks]))
