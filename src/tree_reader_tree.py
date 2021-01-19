@@ -44,8 +44,9 @@ class Tree:
         else:
             return self
 
-    def trim(self, depth):
-        self.root.trim(depth)
+    def trim(self,limit):
+        for child in self.root.children:
+            child.trim(limit)
 
     def feature_levels(self):
         return self.root.feature_levels()

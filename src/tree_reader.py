@@ -117,6 +117,11 @@ class Forest:
             nodes = [n for n in nodes if n.level <= depth]
         return nodes
 
+    def reeindex_nodes(self):
+        nodes = self.nodes()
+        for i,node in enumerate(nodes):
+            node.index = i
+
     def leaves(self, depth=None):
         leaves = []
         for tree in self.trees:
@@ -140,10 +145,14 @@ class Forest:
     def roots(self):
         return [tree.root for tree in self.trees]
 
-    def trim(self, depth):
+    def trim(self,limit):
 
-        for tree in self.trees:
-            tree.trim(depth)
+        for i,tree in enumerate(self.trees):
+            print(f"Trimming {i}")
+            tree.trim(limit)
+
+        self.reeindex_nodes()
+        self.reset_cache()
 
     def leaf_mask(self):
         leaf_mask = np.zeros(len(self.nodes()), dtype=bool)

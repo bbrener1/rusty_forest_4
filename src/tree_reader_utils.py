@@ -375,3 +375,14 @@ def double_fast_knn(elements1, elements2, k, neighborhood_fraction=.01, metric='
     print("\n")
 
     return nearest_neighbors
+
+def jackknife_variance(values):
+    squared_values = np.power(values, 2)
+    n = squared_valus.shape[0]
+    sum = np.sum(squared_values, axis=0)
+    excluded_sum = sum - squared_values
+    excluded_mse = excluded_sum / (n - 1)
+    jackknifed = np.var(
+        excluded_mse, axis=0) * (n - 1)
+
+    return jackknifed

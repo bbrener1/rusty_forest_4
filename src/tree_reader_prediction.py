@@ -9,6 +9,7 @@ from scipy.stats import ranksums
 from scipy.stats import mannwhitneyu
 from scipy.stats import t
 
+# from tree_reader_utils import jackknife_variance
 
 mpl.rcParams['figure.dpi'] = 100
 
@@ -23,6 +24,8 @@ class Prediction:
         self.nme = None
         self.nae = None
         self.smc = None
+        self.nsr2 = None
+        self.nfr2 = None
         self.factors = None
 
     def node_sample_encoding(self):
@@ -40,13 +43,41 @@ class Prediction:
         if self.nae is None:
             self.nae = self.forest.mean_additive_matrix(self.forest.nodes())
         return self.nae
-    #
-    # def node_srs_encoding(self):
-    #     if self.nsrs is None:
-    #         nsrs = np.zeros((len(self.forest.nodes()),self.mtx.shape[1]))
-    #
-    #         for node in self.forest.nodes():
-    #             srs = np.sum(np.power(self.node_residuals(node),2),axis=0)
+
+    def node_sample_r2(self):
+        truth = self.matrix
+        self.node_mean_encoding()
+        self.node_sample_encoding()
+        if self.nsr2 is None:
+            print("Computing Node-Sample R2")
+            self.nsr2 = np.zeros(self.nse.shape)
+            for node in self.forest.nodes():
+                if node.index % 100 == 0:
+                    print(f"Node {node.index}",end='\r')
+                node_prediction = self.nme[node.index]
+                selection = truth[self.nse[node.index]]
+                residuals = selection - node_prediction
+                self.nsr2[node.index][self.nse[node.index]] = np.sum(np.power(residuals,2),axis=1)
+            print("")
+        return self.nsr2
+
+    def node_feature_r2(self):
+        truth = self.matrix
+        self.node_mean_encoding()
+        self.node_sample_encoding()
+        if self.nfr2 is None:
+            print("Computing Node-Sample R2")
+            self.nfr2 = np.zeros(self.nme.shape)
+            for node in self.forest.nodes():
+                if node.index % 100 == 0:
+                    print(f"Node {node.index}",end='\r')
+                node_prediction = self.nme[node.index]
+                selection = truth[self.nse[node.index]]
+                residuals = selection - node_prediction
+                self.nfr2[node.index] = np.sum(np.power(residuals,2),axis=0)
+
+        return self.nfr2
+
 
     def additive_prediction(self, depth=8):
         encoding = self.node_sample_encoding().T
@@ -56,10 +87,11 @@ class Prediction:
 
         return prediction
 
-    def mean_prediction(self):
-        leaf_mask = self.forest.leaf_mask()
-        encoding_prediction = self.node_sample_encoding()[leaf_mask].T
-        feature_predictions = self.node_mean_encoding()[leaf_mask]
+    def mean_prediction(self,mask = None):
+        if mask is None:
+            mask = self.forest.leaf_mask()
+        encoding_prediction = self.node_sample_encoding()[mask].T
+        feature_predictions = self.node_mean_encoding()[mask]
         scaling = np.dot(encoding_prediction,
                          np.ones(feature_predictions.shape))
 
@@ -103,6 +135,12 @@ class Prediction:
 
         return centered_truth
 
+    def null_r2(self):
+
+        null_residuals = self.null_residuals()
+
+        return np.sum(np.power(null_residuals,2),axis=0)
+
     def node_residuals(self, node, truth=None):
 
         if truth is None:
@@ -114,6 +152,20 @@ class Prediction:
 
         return residuals
 
+    def node_feature_r2(self,node,truth=None):
+
+        if truth is None:
+            truth = self.matrix
+
+        sample_predictions = self.node_sample_encoding()[node.index]
+        feature_predictions = self.node_mean_encoding()[node.index]
+        true_sum = np.sum(np.power(truth[sample_predictions],2),axis=0)
+        r2 = true_sum - (sample_predictions * np.sum(sample_predictions.astype(dtype=int)))
+
+
+        return r2
+
+
     def node_fraction(self, node):
 
         self_samples = np.sum(self.node_sample_encoding()[node.index])
@@ -121,7 +173,10 @@ class Prediction:
             parent_samples = self_samples
         else:
             parent_samples = np.sum(self.node_sample_encoding()[node.parent.index])
-        return float(self_samples)/float(parent_samples)
+        if parent_samples > 0:
+            return float(self_samples)/float(parent_samples)
+        else:
+            return 0
 
     def node_mse(self,node):
 
@@ -146,23 +201,43 @@ class Prediction:
 
         return self_residuals,parent_residuals
 
+    def node_r2_doublet(self,node):
+
+        sample_mask = self.node_sample_encoding()[node.index]
+
+        self_r2 = np.sum(self.node_sample_r2()[node.index][sample_mask])
+
+        if node.parent is not None:
+            parent_r2 = np.sum(self.node_sample_r2()[node.parent.index][sample_mask])
+        else:
+            parent_r2 = 0
+
+        return self_r2,parent_r2
+
     def node_feature_error(self,node):
         residuals = self.node_residuals(node)
         return np.sum(np.power(residuals,2),axis=0)
 
     def factor_total_error(self,factor):
 
-        self_total_error = np.zeros(len(self.forest.output_features))
-        parent_total_error = np.zeros(len(self.forest.output_features))
+        # self_total_error = np.zeros(len(self.forest.output_features))
+        # parent_total_error = np.zeros(len(self.forest.output_features))
+
+        self_total_error = 0
+        parent_total_error = 0
 
         for i,node in enumerate(factor.nodes):
             if i % 10 == 0:
                 print(f"{i}/{len(factor.nodes)}",end='\r')
 
-            self_residuals,parent_residuals = self.node_residual_doublet(node)
+            self_r2,parent_r2 = self.node_r2_doublet(node)
+            self_total_error += self_r2
+            parent_total_error += parent_r2
 
-            self_total_error += np.sum(np.power(self_residuals,2),axis=0)
-            parent_total_error += np.sum(np.power(parent_residuals,2),axis=0)
+            # self_residuals,parent_residuals = self.node_residual_doublet(node)
+            #
+            # self_total_error += np.sum(np.power(self_residuals,2),axis=0)
+            # parent_total_error += np.sum(np.power(parent_residuals,2),axis=0)
 
         print("\n",end='')
 
@@ -172,6 +247,9 @@ class Prediction:
 
         node_mses = np.array([self.node_mse(n) for n in factor.nodes])
 
+        # Filter for empty nodes
+        node_mses = node_mses[np.isfinite(node_mses)]
+
         n = len(node_mses)
 
         total = np.sum(node_mses)
@@ -180,6 +258,8 @@ class Prediction:
         excluded_sum = total - node_mses
         excluded_means = excluded_sum / (n - 1)
         variance_estimate = ((n - 1) / n) * np.sum(np.power(excluded_means - mse_estimate,2))
+        #
+        # print(f"Jackknife debug:{n},{mse_estimate},{variance_estimate}")
 
         return mse_estimate,variance_estimate
 
@@ -228,6 +308,11 @@ class Prediction:
         self_fvu = np.sum(self_self)/ np.sum(self_parent)
         other_fvu = np.sum(other_self)/ np.sum(other_parent)
 
+        # null_r2 = self.null_r2()
+        #
+        # self_self,self_parent = self.factor_residual_doublet(factor)
+        # other_self,other_parent = other.factor_residual_doublet(factor)
+
         print(f"Self FVU: {self_fvu}")
         print(f"Other FVU: {other_fvu}")
 
@@ -250,8 +335,8 @@ class Prediction:
 
         print(f"Now comparing values for Factor {factor.name()}:")
 
-        own_f = self.factor_matrix()[factor.id]
-        other_f = other.factor_matrix()[factor.id]
+        own_f = self.factor_matrix()[:,factor.id]
+        other_f = other.factor_matrix()[:,factor.id]
 
         own_hist = np.histogram(
             own_f, bins=np.arange(-1, 1, bin_interval))[0] + 1
@@ -421,9 +506,9 @@ class Prediction:
         forest_square_residuals = np.power(self.residuals(truth=truth), 2)
         predicted_residual_sum = np.sum(forest_square_residuals)
 
-        explained = predicted_residual_sum / null_residual_sum
+        unexplained = predicted_residual_sum / null_residual_sum
 
-        print(explained)
+        print(f"Fraction Unexplained:{unexplained}")
 
         # Add one here to avoid divisions by zero, but this is bad
         # Need better solution

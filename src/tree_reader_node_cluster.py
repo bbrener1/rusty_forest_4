@@ -35,8 +35,14 @@ class NodeCluster:
 
     def node_mask(self):
         mask = np.zeros(len(self.forest.nodes()), dtype=bool)
-        for node in self.nodes:
-            mask[node.index] = True
+        indices = [n.index for n in self.nodes]
+        mask[indices] = True
+        return mask
+
+    def parent_mask(self):
+        mask = np.zeros(len(self.forest.nodes()), dtype=bool)
+        parents = [p.index for p in self.parents()]
+        mask[parents] = True
         return mask
 
     def sisters(self):
@@ -530,8 +536,8 @@ class NodeCluster:
         m = len(important_features)
 
         fig = plt.figure(figsize=(n, n))
-        ax = fig.add_axes([0, 0, 1, 1])
-        plt.title(f"Local Correlations in {self.name()}")
+        ax = fig.add_axes([0, 0, .8, 1])
+        plt.title(f"Local Correlations in {self.name()}",fontsize=15)
         im = ax.imshow(selected_local, vmin=-1, vmax=1, cmap='bwr')
         for i in range(m):
             for j in range(m):
@@ -542,7 +548,8 @@ class NodeCluster:
 
         plt.xticks(np.arange(m), labels=important_features, rotation=45)
         plt.yticks(np.arange(m), labels=important_features, rotation=45)
-        plt.colorbar(im)
+        cb_ax = fig.add_axes([.85,.1,.1,.8])
+        plt.colorbar(im,cax=cb_ax,label="Weighted Pearson Correlation")
         plt.tight_layout()
         if no_plot:
             return fig
@@ -559,8 +566,8 @@ class NodeCluster:
         m = len(important_features)
 
         fig = plt.figure(figsize=(n, n))
-        ax = fig.add_axes([0, 0, 1, 1])
-        plt.title("Global Correlations")
+        ax = fig.add_axes([0, 0, .8, 1])
+        plt.title("Global Correlations",fontsize=15)
         im = ax.imshow(selected_global, vmin=-1, vmax=1, cmap='bwr')
         for i in range(m):
             for j in range(m):
@@ -571,7 +578,8 @@ class NodeCluster:
 
         plt.xticks(np.arange(m), labels=important_features, rotation=45)
         plt.yticks(np.arange(m), labels=important_features, rotation=45)
-        plt.colorbar(im)
+        cb_ax = fig.add_axes([.85,.1,.1,.8])
+        plt.colorbar(im,cax=cb_ax,label="Weighted Pearson Correlation")
         plt.tight_layout()
         if no_plot:
             return fig
@@ -672,7 +680,7 @@ class NodeCluster:
             f"Distribution of Samples \nIn {self.name()} (Red) vs Its Sisters (Blue)")
         plt.scatter(forest_coordinates[:, 0], forest_coordinates[:, 1], s=1,
                     alpha=.6, c=sister_scores, norm=DivergingNorm(0), cmap='bwr')
-        plt.colorbar()
+        plt.colorbar(label="Sister Score (Difference in Probability)")
         plt.ylabel("tSNE Coordinates (AU)")
         plt.xlabel("tSNE Coordinates (AU)")
         plt.savefig(location + "sister_map.png",dpi=DPI_SET)

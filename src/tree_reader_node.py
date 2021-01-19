@@ -213,6 +213,11 @@ class Node:
 
         return self_srs,parent_srs
 
+    def coefficient_of_determination(self):
+        self_srs,parent_srs = self.squared_residual_doublet()
+        cod = 1 - np.sum(self_srs)/np.sum(parent_srs)
+        return cod
+
     def dispersions(self, mode='mean'):
 
         # Dispersions of this node. Hardcoded for SSME at the moment.
@@ -511,15 +516,15 @@ class Node:
             d = max(child.depth(d + 1), d)
         return d
 
-    def trim(depth):
+    def trim(self,limit):
 
-        # NOT YET FULLY IMPLEMENTED
+        if self.coefficient_of_determination() < limit:
+            self.local_samples = self.samples()
+            self.children = []
 
-        all_children = self.nodes()
-        keep_children = set(self.descend(depth))
-        for child in all_children:
-            if child not in keep_children:
-                del(child)
+        for child in self.children:
+            child.trim(limit)
+
 
     def sorted_node_counts(self):
 
