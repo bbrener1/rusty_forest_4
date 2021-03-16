@@ -53,28 +53,16 @@ def hacked_louvain(knn, resolution=1):
     print("Louvain: {}".format(clustering.shape))
     return clustering
 
+def weighted_correlation(x,weights):
 
-# def embedded_hdbscan(coordinates):
-#
-#     clustering_model = HDBSCAN(min_cluster_size=50)
-#     clusters = clustering_model.fit_predict(coordinates)
-#     return clusters
-#
-# def sample_hdbscan(nodes,samples):
-#
-#     node_encoding = node_sample_encoding(nodes,samples)
-#     embedding_model = PCA(n_components=100)
-#     pre_computed_embedded = embedding_model.fit_transform(node_encoding.T)
-#     print("Sample HDBscan Encoding: {}".format(pre_computed_embedded.shape))
-# #     pre_computed_distance = coocurrence_distance(node_encoding)
-#     pre_computed_distance = scipy.spatial.distance.squareform(pdist(pre_computed_embedded,metric='correlation'))
-#     print("Sample HDBscan Distance Matrix: {}".format(pre_computed_distance.shape))
-# #     pre_computed_distance[pre_computed_distance == 0] += .000001
-#     pre_computed_distance[np.isnan(pre_computed_distance)] = 10000000
-#     clustering_model = HDBSCAN(min_samples=3,metric='precomputed')
-#     clusters = clustering_model.fit_predict(pre_computed_distance)
-#
-#     return clusters
+    weighted_covariance = np.cov(x, fweights=weights)
+    diagonal = np.diag(weighted_covariance)
+    normalization = np.sqrt(np.abs(np.outer(diagonal, diagonal)))
+    correlations = weighted_covariance / normalization
+    correlations[normalization == 0] = 0
+    correlations[np.identity(correlations.shape[0], dtype=bool)] = 1.
+
+    return correlations
 
 
 def sample_agglomerative(nodes, samples, n_clusters):
@@ -378,7 +366,7 @@ def double_fast_knn(elements1, elements2, k, neighborhood_fraction=.01, metric='
 
 def jackknife_variance(values):
     squared_values = np.power(values, 2)
-    n = squared_valus.shape[0]
+    n = squared_values.shape[0]
     sum = np.sum(squared_values, axis=0)
     excluded_sum = sum - squared_values
     excluded_mse = excluded_sum / (n - 1)

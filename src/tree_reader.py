@@ -406,6 +406,32 @@ class Forest:
 
         return first_forest
 
+    def from_sklearn(forest):
+
+
+        raw_trees = [e.tree_ for e in forest.estimators_]
+
+        trees = []
+
+        def node_recursion(index,children_left,children_right):
+            nodes = []
+            left_child = children_left[index]
+            right_child = children_right[index]
+            if left_child > 0 and right_child > 0:
+                nodes.extend(node_recursion(left_child,children_left,children_right))
+                nodes.extend(node_recursion(right_child,children_left,children_right))
+                nodes.append(left_child)
+                nodes.append(right_child)
+            return nodes
+
+        for raw_tree in raw_trees:
+            children_left = raw_tree.children_left
+            children_right = raw_tree.children_right
+            nodes = node_recursion(0,children_left,children_right)
+            trees.append(nodes)
+
+        return trees
+
     def set_cache(self, value):
         self.cache = value
         for node in self.nodes():

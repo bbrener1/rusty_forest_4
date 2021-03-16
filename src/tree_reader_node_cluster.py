@@ -1,4 +1,4 @@
-from tree_reader_utils import js_wrap, generate_feature_value_html, generate_cross_reference_table
+from tree_reader_utils import js_wrap, generate_feature_value_html, generate_cross_reference_table, weighted_correlation
 import os
 
 import numpy as np
@@ -276,15 +276,6 @@ class NodeCluster:
         return self_total_error,parent_total_error
 
 
-    def weighted_covariance(self):
-        scores = self.sister_scores()
-        weights = np.abs(scores)
-
-        weighted_means = np.average(
-            self.forest.output, axis=0, weights=weights)
-        centered_data = self.forest.output - weighted_means
-        covariance = np.dot(centered_data.T, centered_data)
-
     def top_split_features(self, n=10):
         from sklearn.linear_model import LinearRegression
 
@@ -346,19 +337,14 @@ class NodeCluster:
 
         return important_features,important_values,important_indices
 
-    def local_correlations(self,indices=None):
+    def local_correlations(self, indices=None):
 
         if indices is None:
             indices = np.arange(self.forest.output.shape[1])
 
         weights = self.sample_counts()
+        correlations = weighted_correlation(self.forest.output.T[indices],weights=weights)
 
-        weighted_covariance = np.cov(self.forest.output.T[indices], fweights=weights)
-        diagonal = np.diag(weighted_covariance)
-        normalization = np.sqrt(np.abs(np.outer(diagonal, diagonal)))
-        correlations = weighted_covariance / normalization
-        correlations[normalization == 0] = 0
-        correlations[np.identity(correlations.shape[0], dtype=bool)] = 1.
         return correlations
 
 

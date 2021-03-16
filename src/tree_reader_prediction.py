@@ -218,10 +218,26 @@ class Prediction:
         residuals = self.node_residuals(node)
         return np.sum(np.power(residuals,2),axis=0)
 
-    def factor_total_error(self,factor):
+    def factor_feature_error(self,factor):
 
-        # self_total_error = np.zeros(len(self.forest.output_features))
-        # parent_total_error = np.zeros(len(self.forest.output_features))
+        self_total_error = np.zeros(len(self.forest.output_features))
+        parent_total_error = np.zeros(len(self.forest.output_features))
+
+        for i,node in enumerate(factor.nodes):
+            if i % 10 == 0:
+                print(f"{i}/{len(factor.nodes)}",end='\r')
+
+            self_residuals,parent_residuals = self.node_residual_doublet(node)
+
+            self_total_error += np.sum(np.power(self_residuals,2),axis=0)
+            parent_total_error += np.sum(np.power(parent_residuals,2),axis=0)
+
+        print("\n",end='')
+
+        return self_total_error,parent_total_error
+
+
+    def factor_total_error(self,factor):
 
         self_total_error = 0
         parent_total_error = 0
@@ -233,11 +249,6 @@ class Prediction:
             self_r2,parent_r2 = self.node_r2_doublet(node)
             self_total_error += self_r2
             parent_total_error += parent_r2
-
-            # self_residuals,parent_residuals = self.node_residual_doublet(node)
-            #
-            # self_total_error += np.sum(np.power(self_residuals,2),axis=0)
-            # parent_total_error += np.sum(np.power(parent_residuals,2),axis=0)
 
         print("\n",end='')
 
@@ -378,35 +389,28 @@ class Prediction:
         else:
             raise Exception(f"Mode not recognized: {mode}")
 
-    def node_feature_remaining_error(self, nodes):
-
-        per_node_fraction = []
-
-        for node in nodes:
-
-            if node.parent is not None:
-
-                node_residuals = self.node_residuals(node)
-                remaining_error = np.sum(np.power(node_residuals, 2), axis=0)
-
-                sister_residuals = self.node_residuals(node.sister())
-                remaining_error += np.sum(np.power(sister_residuals, 2), axis=0)
-
-                parent_residuals = self.node_residuals(node.parent)
-                original_error += np.sum(np.power(parent_residuals, 2), axis=0)
-
-                # Avoid nans:
-                # (there's gotta be a better way) *billy mays theme starts*
-
-                remaining_error += 1
-                original_error += 1
-
-                per_node_fraction.append(remaining_error / original_error)
-
-            else:
-                per_node_fraction.append(1)
-
-        return np.mean(np.array(per_node_fraction), axis=0)
+    # def node_feature_remaining_error(self, nodes):
+    #
+    #     node_error = []
+    #     parent_error = []
+    #
+    #     for node in nodes:
+    #
+    #         if node.parent is not None:
+    #
+    #             node_residuals = self.node_residuals(node)
+    #             remaining_error = np.sum(np.power(node_residuals, 2), axis=0)
+    #
+    #             parent_residuals = self.node_residuals(node.parent)
+    #             original_error += np.sum(np.power(parent_residuals, 2), axis=0)
+    #
+    #             # Avoid nans:
+    #             # (there's gotta be a better way) *billy mays theme starts*
+    #
+    #             node_error.append(remaining_error)
+    #             parent_error.append(original_error)
+    #
+    #     return node_error,parent_error
 
     def sample_clusters(self):
 
