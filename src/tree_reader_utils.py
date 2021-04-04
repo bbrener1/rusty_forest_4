@@ -113,14 +113,6 @@ def count_list_elements(elements):
         dict[element] += 1
     return dict
 
-
-def triangulate_knn(elements, k):
-
-    distances = {}
-
-    anchor = 0
-
-
 def generate_feature_value_html(features, values, normalization=None, cmap=None):
 
     col_header = ["Features", "Values"]
@@ -219,17 +211,37 @@ def fast_knn(elements, k, neighborhood_fraction=.01, metric='euclidean'):
         anchors = available[:int(complete.shape[0] / neighborhood_size) * 3]
 
         for anchor in anchors:
-            print(f"Complete:{np.sum(complete)}\r", end='')
+            # print(f"Complete:{np.sum(complete)}\r", end='')
 
-            anchor_distances = cdist(elements[anchor].reshape(
-                1, -1), elements, metric=metric)[0]
+            if metric == "sister":
+                anchor_distances = sister_distance(elements[anchor].reshape(1,-1),elements)[0]
+            else:
+                anchor_distances = cdist(elements[anchor].reshape(
+                    1, -1), elements, metric=metric)[0]
+
+            # print(anchor_distances.shape)
 
             neighborhood = np.argpartition(anchor_distances, neighborhood_size)[
                 :neighborhood_size]
             anchor_local = np.where(neighborhood == anchor)[0]
 
-            local_distances = squareform(
-                pdist(elements[neighborhood], metric=metric))
+            # print(neighborhood)
+            # print(anchor_distances[neighborhood])
+            # print(anchor_local)
+            #
+            # print("FKNN debug")
+            # print(elements.shape)
+            # print(elements[neighborhood].shape)
+
+            if metric == "sister":
+                local_distances = sister_distance(elements[neighborhood])
+            else:
+                local_distances = squareform(
+                    pdist(elements[neighborhood], metric=metric))
+
+            # print("FKNN debug 2")
+            # print(anchor_distances.shape)
+            # print(local_distances.shape)
 
             anchor_to_worst = np.max(local_distances[anchor_local])
 
@@ -239,6 +251,9 @@ def fast_knn(elements, k, neighborhood_fraction=.01, metric='euclidean'):
                     # First select the indices in the neighborhood that are knn
                     best_neighbors_local = np.argpartition(
                         local_distances[i], k + 1)
+
+                    # print("best neighbors")
+                    # print(best_neighbors_local.shape)
 
                     # Next find the worst neighbor among the knn observed
                     best_worst_local = best_neighbors_local[np.argmax(
@@ -363,6 +378,29 @@ def double_fast_knn(elements1, elements2, k, neighborhood_fraction=.01, metric='
     print("\n")
 
     return nearest_neighbors
+
+def sister_distance(sisters_1,sisters_2=None):
+    if sisters_2 is None:
+        sisters_2 = sisters_1.copy()
+
+    # Compute distances of samples to others using the sister encoding
+    product = np.dot(sisters_1,sisters_2.T)
+    populations_1 = np.sum((sisters_1 != 0).astype(dtype=int),axis=1)
+    populations_2 = np.sum((sisters_2 != 0).astype(dtype=int),axis=1)
+    dot_min = np.zeros((sisters_1.shape[0],sisters_2.shape[0]))
+    dot_max = np.zeros((sisters_1.shape[0],sisters_2.shape[0]))
+
+    for i in range(sisters_1.shape[0]):
+        dot_min[i] = populations_2
+        dot_max[i] = populations_2
+        dot_min[i][populations_2 > populations_1[i]] = populations_1[i]
+        dot_max[i][populations_2 < populations_1[i]] = populations_1[i]
+
+    product = product + dot_min
+
+    return 1-(product  / (2*dot_max))
+
+
 
 def jackknife_variance(values):
     squared_values = np.power(values, 2)

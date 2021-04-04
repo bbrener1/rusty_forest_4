@@ -578,6 +578,7 @@ where
         self.median()
     }
     fn dispersion(&self) -> Self::V {
+        // self.variance()
         // self.ssme()
         self.sme()
     }
@@ -682,6 +683,22 @@ where
                 right_sum += right_median_value - median;
             }
             left_sum + right_sum
+        }
+
+        fn variance(&self) -> V {
+            (self.squared_sum() / V::from(self.len()).expect("Cast failure")) - self.mean().pow(2)
+        }
+
+        fn mean(&self) -> V {
+            self.sum() / V::from(self.len()).expect("Cast failure")
+        }
+
+        fn sum(&self) -> V {
+            self.segments[0].sum + self.segments[1].sum + self.segments[2].sum
+        }
+
+        fn squared_sum(&self) -> V {
+            self.segments[0].squared_sum + self.segments[1].squared_sum + self.segments[2].squared_sum
         }
 
         pub fn check_integrity(&self) {
@@ -1088,7 +1105,7 @@ where
 
 }
 
-enum DispersionArray<V:SampleValue> {
+pub enum DispersionArray<V:SampleValue> {
     SME {vector:MedianArray<V>},
     SSME {vector:MedianArray<V>},
     Variance {vector:MeanArray<V>},
@@ -1098,7 +1115,7 @@ enum DispersionArray<V:SampleValue> {
 use crate::io::DispersionMode;
 impl<V:SampleValue> DispersionArray<V>{
 
-    fn link(sorted_input:&[(usize,V)],dispersion:DispersionMode) -> Self {
+    pub fn link(sorted_input:&[(usize,V)],dispersion:DispersionMode) -> Self {
 
         match dispersion {
             DispersionMode::SME => {DispersionArray::SME{vector:MedianArray::link(sorted_input)}},
@@ -1109,7 +1126,7 @@ impl<V:SampleValue> DispersionArray<V>{
         }
     }
 
-    fn dispersion(&self) -> V {
+    pub fn dispersion(&self) -> V {
         match self {
             DispersionArray::SME{vector} => {vector.sme()},
             DispersionArray::SSME{vector} => {vector.ssme()},
@@ -1117,6 +1134,7 @@ impl<V:SampleValue> DispersionArray<V>{
             DispersionArray::MAD{vector} => {unimplemented!()},
         }
     }
+
 }
 
 
@@ -1226,6 +1244,24 @@ mod random_forest_tests {
         println!("{:?}",mv);
         assert_eq!(0.,mv.median());
 
+    }
+
+    #[test]
+    fn dispersion_test() {
+        let mut mv = MedianVector::<f64>::with_capacity(8);
+        mv.link(&argsorted());
+        mv.dispersion();
+        mv.pop(0);
+        mv.dispersion();
+    }
+
+    #[test]
+    fn dispersion_array_test() {
+        let mut mv = MedianArray::<f64>::with_capacity(8);
+        mv.link(&argsorted());
+        mv.dispersion();
+        mv.pop(0);
+        mv.dispersion();
     }
 
     #[test]

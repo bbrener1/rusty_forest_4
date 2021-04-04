@@ -126,7 +126,6 @@ where
 
 }
 
-
 pub fn read<V:SampleValue,T: Iterator<Item = String>>(args: &mut T) -> ParameterBook<V> {
 
     let mut arg_struct = ParameterBook::blank();
@@ -347,8 +346,6 @@ impl<V: SampleValue> ParameterBook<V> {
         }
     }
 
-
-
     fn auto(&mut self) {
 
         let input_counts = self.input_array.as_ref().expect("Please specify counts file(s) before the \"-auto\" argument.");
@@ -429,6 +426,51 @@ impl<V: SampleValue> ParameterBook<V> {
         self.max_splits = max_splits;
 
 
+    }
+
+
+    pub fn test(array:Array2<f64>) -> ParameterBook<f64> {
+        ParameterBook
+        {
+            auto: false,
+            input_count_array_file: "".to_string(),
+            input_array: Some(array.clone()),
+            output_count_array_file: "".to_string(),
+            output_array: Some(array.clone()),
+            input_feature_header_file: None,
+            input_feature_names: (0..array.dim().1).map(|x| format!("{:}",x)).collect(),
+            output_feature_header_file: None,
+            output_feature_names: (0..array.dim().1).map(|x| format!("{:}",x)).collect(),
+            sample_header_file: None,
+            sample_names: vec![],
+            report_address: "./".to_string(),
+
+            processor_limit: 10,
+            tree_limit: 100,
+            leaf_size_cutoff: 5,
+            depth_cutoff: 5,
+            max_splits: 100,
+
+            feature_subsample: 2,
+            sample_subsample: 20,
+            input_feature_subsample: 2,
+            output_feature_subsample: 2,
+
+            braid_thickness: 1,
+            scaling:false,
+            reduce_input:true,
+            reduce_output:false,
+
+            norm_mode: NormMode::L1,
+            dispersion_mode: DispersionMode::SSME,
+            split_fraction_regularization: 0.5,
+            big_mem: false,
+
+            backups: None,
+            backup_vec: None,
+
+
+        }
     }
 
 

@@ -1,4 +1,4 @@
-from tree_reader_utils import fast_knn, double_fast_knn, hacked_louvain, generate_feature_value_html
+from tree_reader_utils import fast_knn, double_fast_knn, hacked_louvain, generate_feature_value_html,sister_distance
 from tree_reader_node import Node, Reduction, Filter
 from tree_reader_prediction import Prediction
 from tree_reader_sample_cluster import SampleCluster
@@ -174,7 +174,7 @@ class Forest:
 ########################################################################
 
 
-    def node_representation(self, nodes=None, mode='gain', metric=None, pca=0):
+    def node_representation(self, nodes=None, mode='additive_mean', metric=None, pca=0):
         from sklearn.decomposition import IncrementalPCA
 
         # ROWS ARE NODES, COLUMNS ARE WHATEVER
@@ -239,6 +239,12 @@ class Forest:
             # encoding = PCA(n_components=pca).fit_transform(encoding)
 
             # encoding = PCA(n_components=pca).fit_transform(encoding)
+
+        if metric == "sister":
+            if mode != "sister":
+                raise Exception(f"Mode and metric mismatched {mode},{metric}")
+            else:
+                representation = sister_distance(encoding)
 
         if metric is not None:
             representation = squareform(pdist(encoding, metric=metric))
@@ -802,7 +808,7 @@ class Forest:
 
         else:
             representation = self.node_representation(
-                nodes[stem_mask], mode=mode, metric=None, pca=pca)
+                nodes[stem_mask], mode=mode, pca=pca)
 
             print("Running knn")
             knn = fast_knn(representation, k=k, metric=metric, **kwargs)

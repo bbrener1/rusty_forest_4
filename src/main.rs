@@ -26,6 +26,7 @@ mod rank_matrix;
 mod io;
 mod node;
 mod nipals;
+mod rv_dict;
 
 use std::hash::Hash;
 use std::cmp::{Eq,PartialOrd};
@@ -842,6 +843,87 @@ pub trait ArgMinMax<I:PartialOrd+PartialEq> : Iterator<Item=I> + Sized {
 }
 
 impl<I:Iterator<Item=IT>,IT:PartialOrd+PartialEq> ArgMinMax<IT> for I {}
+
+#[cfg(test)]
+mod main_tests {
+
+    use crate::iris_array;
+    use super::*;
+
+    #[test]
+    fn main_test() {
+        let iris = iris_array().t().to_owned();
+        let book = ParameterBook::<f64>::test(iris);
+        let forest = ForestUF::from_parameters(book);
+
+
+        (0..10)
+            // .into_iter()
+            .into_par_iter()
+            .flat_map(|i| {
+                let mut root = FastNode::from_forest(&forest);
+                println!("Computing tree {:?}",i);
+                // println!("#######################");
+
+                let mut leaf_splits: Vec<(&mut FastNode<f64>,(SampleFilter<InputFeatureUF<f64>>,SampleFilter<InputFeatureUF<f64>>),f64)> = vec![];
+                if let Some(root_split) = root.best_reduced_split(false,true) {
+                    leaf_splits.push(root_split)
+                }
+                else { return None }
+
+                // println!("Initial candidates computed");
+                //
+                // for j in 0..forest.parameters().max_splits {
+                //     if let Some((best_index,_)) = leaf_splits.iter().map(|(_,_,d)| d).argmax_v() {
+                //         let (node,(left,right),_) = leaf_splits.remove(best_index);
+                //         if let Some(stem) = node.split(left,right) {
+                //             let (left_slice,right_slice) = stem.mut_children().split_at_mut(1);
+                //             let left_split = left_slice[0].best_reduced_split(forest.parameters().reduce_input,forest.parameters().reduce_output);
+                //             let right_split = right_slice[0].best_reduced_split(forest.parameters().reduce_input,forest.parameters().reduce_output);
+                //             leaf_splits.extend(left_split);
+                //             leaf_splits.extend(right_split);
+                //         };
+                //     };
+                // }
+
+                while leaf_splits.len() > 0 {
+                    let (node,(left,right),_) = leaf_splits.pop().unwrap();
+                    if let Some(stem) = node.split(left,right) {
+                        // println!("depth:{:?}",stem.depth);
+                        let (left_slice,right_slice) = stem.mut_children().split_at_mut(1);
+                        if left_slice[0].depth < forest.parameters().depth_cutoff {
+                            let left_split = left_slice[0].best_reduced_split(forest.parameters().reduce_input,forest.parameters().reduce_output);
+                            let right_split = right_slice[0].best_reduced_split(forest.parameters().reduce_input,forest.parameters().reduce_output);
+                            leaf_splits.extend(left_split);
+                            leaf_splits.extend(right_split);
+                        }
+                    };
+                };
+
+                // while leaf_splits.len() > 0 {
+                //     let (node,(left,right),_) = leaf_splits.pop().unwrap();
+                //     if let Some(stem) = node.split(left,right) {
+                //         // println!("depth:{:?}",stem.depth);
+                //         let (left_slice,right_slice) = stem.mut_children().split_at_mut(1);
+                //         if left_slice[0].depth < forest.parameters().depth_cutoff {
+                //             let left_split = left_slice[0].best_split();
+                //             let right_split = right_slice[0].best_split();
+                //             leaf_splits.extend(left_split);
+                //             leaf_splits.extend(right_split);
+                //         }
+                //     };
+                // };
+
+                Some(())
+            })
+            .for_each(drop);
+            // .collect::<Vec<()>>();
+
+
+        // println!("CHILDREN:{:?}",children);
+    }
+
+}
 
 
 pub fn iris_array() -> Array2<f64> {

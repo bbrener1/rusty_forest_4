@@ -165,6 +165,7 @@ class NodeCluster:
             sisters, self.nodes)
         return ordered_features, ordered_difference
 
+
     def coordinates(self, coordinates=None):
 
         if coordinates is None:
@@ -396,6 +397,16 @@ class NodeCluster:
                                                   np.sum(sister_encoding, axis=1))) / own_encoding.shape[1]
         return scores
 
+    def log_sister_scores(self,prior=1):
+        own = self.nodes
+        sisters = self.sisters()
+        own_encoding = self.forest.node_sample_encoding(own).astype(dtype=int)
+        sister_encoding = self.forest.node_sample_encoding(
+            sisters).astype(dtype=int)
+        ratio = (np.sum(own_encoding,axis=1) + prior) / (np.sum(sister_encoding,axis=1) + prior)
+
+        return np.log(ratio)
+
     def predict_sister_scores(self, node_sample_encoding):
         own_nodes = self.nodes
         own_mask = np.zeros(node_sample_encoding.shape[0], dtype=bool)
@@ -408,13 +419,27 @@ class NodeCluster:
         own_encoding = node_sample_encoding[own_mask]
         sister_encoding = node_sample_encoding[sister_mask]
 
-        # print(f"own:{own_encoding.shape}")
-        # print(f"sister:{sister_encoding.shape}")
-
         scores = (np.sum(own_encoding, axis=0) + (-1 *
                                                   np.sum(sister_encoding, axis=0))) / own_encoding.shape[0]
 
         return scores
+
+
+    def predict_log_sister_scores(self, node_sample_encoding,prior=1):
+        own_nodes = self.nodes
+        own_mask = np.zeros(node_sample_encoding.shape[0], dtype=bool)
+        own_mask[[n.index for n in own_nodes]] = True
+
+        sisters = self.sisters()
+        sister_mask = np.zeros(node_sample_encoding.shape[0], dtype=bool)
+        sister_mask[[s.index for s in sisters]] = True
+
+        own_encoding = node_sample_encoding[own_mask]
+        sister_encoding = node_sample_encoding[sister_mask]
+
+        ratio = (np.sum(own_encoding,axis=1) + prior) / (np.sum(sister_encoding,axis=1) + prior)
+
+        return np.log(ratio)
 
 
 ##############################################################################

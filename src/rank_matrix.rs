@@ -1,7 +1,7 @@
 use ndarray::prelude::*;
 use crate::rank_vector::{FeatureVector,SegmentedVector};
 use crate::{SampleKey,SampleValue,DrawOrder};
-use crate::rank_vector::{MedianArray,MedianVector};
+use crate::rank_vector::{MedianArray,MedianVector,MeanArray};
 use crate::valsort;
 use crate::ArgMinMax;
 use num_traits::NumCast;
@@ -11,11 +11,13 @@ pub fn split<V1:SampleValue,V2:SampleValue>(input:&Array2<V1>,output:&Array2<V2>
 
     // println!("Sorting outputs");
 
+    // let mut output_vectors: Vec<MeanArray<V2>> =
     let mut output_vectors: Vec<MedianArray<V2>> =
         output.axis_iter(Axis(1))
         .into_par_iter()
         .map(|column| {
             let valsorted = valsort(column.iter().cloned());
+            // MeanArray::<V2>::link(&valsorted)
             MedianArray::<V2>::link(&valsorted)
             // println!("O:{:?}",output_vectors.last().unwrap());
         })
