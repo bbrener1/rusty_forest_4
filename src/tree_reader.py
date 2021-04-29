@@ -117,7 +117,7 @@ class Forest:
             nodes = [n for n in nodes if n.level <= depth]
         return nodes
 
-    def reeindex_nodes(self):
+    def reindex_nodes(self):
         nodes = self.nodes()
         for i,node in enumerate(nodes):
             node.index = i
@@ -151,7 +151,7 @@ class Forest:
             print(f"Trimming {i}")
             tree.trim(limit)
 
-        self.reeindex_nodes()
+        self.reindex_nodes()
         self.reset_cache()
 
     def leaf_mask(self):
@@ -437,6 +437,55 @@ class Forest:
             trees.append(nodes)
 
         return trees
+
+
+    def from_sklearn(forest):
+
+
+        raw_trees = [e.tree_ for e in forest.estimators_]
+
+        trees = []
+
+        def node_recursion(index,children_left,children_right):
+            nodes = []
+            left_child = children_left[index]
+            right_child = children_right[index]
+            if left_child > 0 and right_child > 0:
+                nodes.extend(node_recursion(left_child,children_left,children_right))
+                nodes.extend(node_recursion(right_child,children_left,children_right))
+                nodes.append(left_child)
+                nodes.append(right_child)
+            return nodes
+
+        for raw_tree in raw_trees:
+            children_left = raw_tree.children_left
+            children_right = raw_tree.children_right
+            nodes = node_recursion(0,children_left,children_right)
+            trees.append(nodes)
+
+        return trees
+
+    def derive_samples(self,samples):
+
+        new_trees = []
+
+        for i,tree in enumerate(self.trees):
+            print(f"Deriving tree {i}")
+            new_trees.append(tree.derive_samples(samples))
+
+        new_forest = Forest(
+            new_trees,
+            deepcopy(self.input[samples]),
+            deepcopy(self.output[samples]),
+            input_features = deepcopy(self.input_features),
+            output_featues = deepcopy(self.output_featues),
+            samples=deepcopy(self.samples[samples]),
+            split_labels=deepcopy(self.split_labels),
+            cache=self.cache
+        )
+
+        return new_forest
+
 
     def set_cache(self, value):
         self.cache = value

@@ -7,7 +7,8 @@ from scipy.stats import entropy
 from scipy.stats import ks_2samp
 from scipy.stats import ranksums
 from scipy.stats import mannwhitneyu
-from scipy.stats import t
+from scipy.stats import t,iqr
+from scipy.spatial.distance import cdist,pdist
 
 # from tree_reader_utils import jackknife_variance
 
@@ -98,6 +99,38 @@ class Prediction:
         prediction = np.dot(encoding_prediction, feature_predictions) / scaling
         prediction[scaling == 0] = 0
         return prediction
+
+    def observed_means(self,nodes = None):
+        if nodes is None:
+            nodes = self.forest.nodes()
+        nse = self.node_sample_encoding()
+        node_mask = np.zeros(nse.shape[0],dtype=bool)
+        node_mask[[n.index for n in nodes]] = True
+        nse = nse[node_mask]
+        means = np.array([np.mean(self.matrix[mask],axis=0) for mask in nse])
+        populations = np.sum(nse,axis=1)
+        means[populations == 0] = 0
+        return means
+
+
+    def observed_marginal(self,nodes = None):
+        if nodes is None:
+            nodes = self.forest.nodes()
+        nse = self.node_sample_encoding()
+
+        marginal = np.zeros((len(nodes),len(self.forest.output_features)))
+
+        for i,node in enumerate(nodes):
+            if node.parent is not None:
+                mask = nse[node.index]
+                parent_mask = nse[node.parent.index]
+                if np.sum(mask.astype(dtype=int)) > 0 and np.sum(parent_mask.astype(dtype=int)) > 0:
+                    nm = np.mean(self.matrix[mask],axis=0)
+                    pnm = np.mean(self.matrix[parent_mask],axis=0)
+                    node_marginal = nm - pnm
+                    marginal[i] = node_marginal
+                else: marginal[i] = 0
+        return marginal
 
     def prediction(self, mode=None):
 
@@ -254,6 +287,22 @@ class Prediction:
 
         return self_total_error,parent_total_error
 
+    def factor_mse(self,factor):
+
+        node_mses = np.array([self.node_mse(n) for n in factor.nodes])
+
+        # Filter for empty nodes
+        node_mses = node_mses[np.isfinite(node_mses)]
+
+        mse = np.mean(node_mses)
+        variance = np.var(node_mses)
+        f_iqr = iqr(node_mses,rng=(5,95))
+        #
+        # print(f"Jackknife debug:{n},{mse_estimate},{variance_estimate}")
+
+        return mse,variance,f_iqr
+
+
     def jackknife_factor_mse(self,factor):
 
         node_mses = np.array([self.node_mse(n) for n in factor.nodes])
@@ -275,20 +324,32 @@ class Prediction:
         return mse_estimate,variance_estimate
 
 
-    def compare_factor_fractions(self,other,factor):
+    def compare_factor_fractions(self,other,factor,plot=False):
 
         print(f"Comparing Split Fraction for Factor {factor.name()}")
 
         self_fractions = np.array([self.node_fraction(n) for n in factor.nodes])
         other_fractions = np.array([other.node_fraction(n) for n in factor.nodes])
 
-        print(f"Self: {np.mean(self_fractions)}")
-        print(f"Other: {np.mean(other_fractions)}")
+        if plot:
+            plt.figure()
+            plt.hist(self_fractions,density=True,bins=20,label='Self',alpha=.5)
+            plt.hist(other_fractions,density=True,bins=20,label='Other',alpha=.5)
+            plt.legend()
+            plt.xlabel("Fraction")
+            plt.ylabel("Frequency")
+            plt.show()
+
+        self_mean = np.mean(self_fractions)
+        other_mean = np.mean(other_fractions)
+
+        print(f"Self: {self_mean}")
+        print(f"Other: {other_mean}")
 
         result = mannwhitneyu(self_fractions,other_fractions)
         print(result)
 
-        return result
+        return self_mean,other_mean,result
     #
     # def compare_factor_features(self,other,factor):
 
@@ -297,21 +358,48 @@ class Prediction:
 
         print(f"Comparing residuals for Factor {factor.name()}")
 
-        self_factor_mse,self_factor_mse_variance = self.jackknife_factor_mse(factor)
-        other_factor_mse,other_factor_mse_variance = other.jackknife_factor_mse(factor)
+        self_factor_mse,self_factor_mse_variance,self_factor_iqr = self.factor_mse(factor)
+        other_factor_mse,other_factor_mse_variance,other_factor_iqr = other.factor_mse(factor)
+
+        # self_factor_mse,self_factor_mse_variance = self.jackknife_factor_mse(factor)
+        # other_factor_mse,other_factor_mse_variance = other.jackknife_factor_mse(factor)
 
         self_mse_std = np.sqrt(self_factor_mse_variance)
         factor_z = (self_factor_mse - other_factor_mse) / self_mse_std
         factor_p = t.pdf(factor_z,len(factor.nodes) - 1)
 
-        print(f"Self Factor MSE:{self_factor_mse}, +/- {self_factor_mse_variance}")
+        print(f"Self Factor MSE:{self_factor_mse}, +/- {self_factor_mse}")
+        print(f"Self Factor MSE 90% interval: {self_factor_iqr}")
         print(f"Other Factor MSE:{other_factor_mse}")
 
         return (factor_z,factor_p)
 
-    def compare_factor_fvu(self,other,factor):
+    def compare_factor_fvu(self,other,factor,plot=False):
 
         print(f"Estimating FVU for Factor {factor.name()}")
+
+        self_doublets = [self.node_r2_doublet(n) for n in factor.nodes]
+        other_doublets = [other.node_r2_doublet(n) for n in factor.nodes]
+
+        self_node_cod = np.array([1-(n/p) for (n,p) in self_doublets])
+        other_node_cod = np.array([1-(n/p) for (n,p) in other_doublets])
+        self_node_cod = self_node_cod[np.isfinite(self_node_cod)]
+        other_node_cod = other_node_cod[np.isfinite(other_node_cod)]
+
+        cod_range = np.quantile(self_node_cod,.05),np.quantile(other_node_cod,.95)
+
+        mwu = mannwhitneyu(self_node_cod, other_node_cod)
+        print(mwu)
+
+        if plot:
+            plt.figure()
+            plt.title("Distritbution of Node CODs")
+            plt.hist(self_node_cod ,density=True,bins=20,label='Self',alpha=.5)
+            plt.hist(other_node_cod,density=True,bins=20,label='Other',alpha=.5)
+            plt.legend()
+            plt.xlabel("Fraction")
+            plt.ylabel("Frequency")
+            plt.show()
 
         self_self,self_parent = self.factor_total_error(factor)
         other_self,other_parent = other.factor_total_error(factor)
@@ -319,18 +407,13 @@ class Prediction:
         self_fvu = np.sum(self_self)/ np.sum(self_parent)
         other_fvu = np.sum(other_self)/ np.sum(other_parent)
 
-        # null_r2 = self.null_r2()
-        #
-        # self_self,self_parent = self.factor_residual_doublet(factor)
-        # other_self,other_parent = other.factor_residual_doublet(factor)
-
         print(f"Self FVU: {self_fvu}")
         print(f"Other FVU: {other_fvu}")
 
-        print(f"Self COD: {1-self_fvu}")
+        print(f"Self COD: {1-self_fvu} {cod_range}")
         print(f"Other COD: {1-other_fvu}")
 
-        return (self_fvu, other_fvu)
+        return (self_fvu, other_fvu,mwu)
 
     def compare_factor_values(
             self,
@@ -389,28 +472,38 @@ class Prediction:
         else:
             raise Exception(f"Mode not recognized: {mode}")
 
-    # def node_feature_remaining_error(self, nodes):
-    #
-    #     node_error = []
-    #     parent_error = []
-    #
-    #     for node in nodes:
-    #
-    #         if node.parent is not None:
-    #
-    #             node_residuals = self.node_residuals(node)
-    #             remaining_error = np.sum(np.power(node_residuals, 2), axis=0)
-    #
-    #             parent_residuals = self.node_residuals(node.parent)
-    #             original_error += np.sum(np.power(parent_residuals, 2), axis=0)
-    #
-    #             # Avoid nans:
-    #             # (there's gotta be a better way) *billy mays theme starts*
-    #
-    #             node_error.append(remaining_error)
-    #             parent_error.append(original_error)
-    #
-    #     return node_error,parent_error
+    def compare_factor_marginals(self,other,factor,metric='cosine'):
+
+        self_marginal = self.observed_marginal(nodes=factor.nodes)
+        other_marginal = other.observed_marginal(nodes=factor.nodes)
+
+        self_mean_marginal = np.mean(self_marginal,axis=0)
+        other_mean_marginal = np.mean(other_marginal,axis=0)
+
+        own_distances = cdist(self_mean_marginal.reshape([1,-1]),self_marginal,metric=metric)[0]
+        other_distances = cdist(self_mean_marginal.reshape([1,-1]),other_marginal,metric=metric)[0]
+
+        ab_max = np.max([np.max(np.abs(self_mean_marginal)),np.max(np.abs(other_mean_marginal))])
+
+        plt.figure()
+        plt.title("Marginal Feature Gain, Self vs Other")
+        plt.scatter(self_mean_marginal,other_mean_marginal)
+        plt.plot([-ab_max,ab_max],[-ab_max,ab_max],color='red',label="Slope 1 (Identical)")
+        plt.legend()
+        plt.xlabel("Self")
+        plt.ylabel("Other")
+        plt.show()
+
+        plt.figure()
+        plt.title("Distances To Mean Factor Marginal")
+        plt.hist(own_distances,bins=50,alpha=.5,density=True,label='Self')
+        plt.hist(other_distances,bins=50,alpha=.5,density=True,label='Other')
+        plt.legend()
+        plt.xlabel("Distance")
+        plt.ylabel("Frequency")
+        plt.show()
+
+        return self_mean_marginal,other_mean_marginal
 
     def sample_clusters(self):
 
@@ -477,30 +570,98 @@ class Prediction:
             print(f"Factor {factor_object.name()}")
             print("#########################################")
 
-            factor_z,factor_p = self.compare_factor_residuals(other,factor_object)
+            self.compare_factor_means(other,factor_object)
+            #
+            # factor_z,factor_p = self.compare_factor_residuals(other,factor_object)
+            #
+            # print(f"Student's T: Test Statistic = {factor_z}, p = {factor_p}")
+            #
+            # factor_ps.append(factor_p)
+            #
+            # self_fvu,other_fvu = self.compare_factor_fvu(other,factor_object)
+            # fvu_deltas.append(other_fvu - self_fvu)
+            #
+            # mwu,symmetric_entropy = self.compare_factor_values(other,factor_object,bins=bins)
+            #
+            # factor_mwus.append(mwu)
+            # factor_symmetric_entropies.append(symmetric_entropy)
+            #
+            # fraction_mwu = self.compare_factor_fractions(other,factor_object)
 
-            print(f"Student's T: Test Statistic = {factor_z}, p = {factor_p}")
+        # result = {
+        #     "P values":factor_ps,
+        #     "FVU Deltas":fvu_deltas,
+        #     "Mann-Whitney U":factor_mwus,
+        #     "Symmetric Entropy":factor_symmetric_entropies,
+        # }
 
-            factor_ps.append(factor_p)
+        # return result
 
-            self_fvu,other_fvu = self.compare_factor_fvu(other,factor_object)
-            fvu_deltas.append(other_fvu - self_fvu)
+    def compare_factor_means(
+                self,
+                other,
+                factor,
+                plot=['scatter'],
+                metric = 'euclidean'
+            ):
 
-            mwu,symmetric_entropy = self.compare_factor_values(other,factor_object,bins=bins)
 
-            factor_mwus.append(mwu)
-            factor_symmetric_entropies.append(symmetric_entropy)
+            print(f"Now comparing factor means {factor.name()}:")
 
-            fraction_mwu = self.compare_factor_fractions(other,factor_object)
+            own_means = self.observed_means(nodes=factor.nodes)
+            other_means = other.observed_means(nodes=factor.nodes)
 
-        result = {
-            "P values":factor_ps,
-            "FVU Deltas":fvu_deltas,
-            "Mann-Whitney U":factor_mwus,
-            "Symmetric Entropy":factor_symmetric_entropies,
-        }
+            own_meta_means = np.mean(own_means,axis=0)
+            other_meta_means = np.mean(other_means,axis=0)
 
-        return result
+            own_distances = cdist(own_meta_means.reshape([1,-1]),own_means,metric=metric)[0]
+            other_distances = cdist(own_meta_means.reshape([1,-1]),other_means,metric=metric)[0]
+
+            own_mean_distance = np.mean(own_distances)
+            other_mean_distance = np.mean(other_distances)
+
+            rank = np.sum((own_distances < other_mean_distance).astype(dtype=int))/len(own_distances)
+
+            if 'debug' in plot:
+                print(own_distances)
+                print(other_distances)
+
+            if 'means' in plot:
+                print("Own means")
+                print(own_meta_means)
+                print("Other means")
+                print(other_meta_means)
+
+            if 'tests' in plot:
+                print(ks_2samp(own_distances,other_distances))
+                print(mannwhitneyu(own_distances,other_distances))
+
+            if 'rank' in plot:
+
+                print(f"Mean Distance: {own_mean_distance}")
+                print(f"Mean of Others To Center: {other_mean_distance}")
+                print(f"Rank: {rank}")
+                print(f"Distance between means: {cdist(own_meta_means.reshape([1,-1]),other_meta_means.reshape([1,-1]),metric=metric)[0,0]}")
+
+
+            if 'scatter' in plot:
+
+                plt.figure(figsize=(5, 5))
+                plt.title(f"Factor {factor.name()} Mean Comparison")
+                plt.scatter(own_meta_means,other_meta_means)
+                plt.xlabel("Own Means")
+                plt.ylabel("Other Means")
+                plt.plot([-.5,.5],[-.5,.5],color='red')
+                plt.show()
+
+            if 'distance' in plot:
+
+                plt.figure(figsize=(5, 5))
+                plt.title(f"Factor {factor.name()} Distances")
+                plt.hist(own_distances.flatten(),bins=100,density=True,label="Own Distances", alpha=.5)
+                plt.hist(other_distances.flatten(),bins=100,density=True,label="Other Distances", alpha=.5)
+                plt.legend()
+                plt.show()
 
     def prediction_report(self, truth=None, n=10, mode="additive_mean", no_plot=False):
 

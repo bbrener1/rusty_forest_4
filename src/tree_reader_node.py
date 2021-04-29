@@ -1,5 +1,5 @@
 import numpy as np
-
+from copy import deepcopy
 
 class Node:
 
@@ -694,6 +694,33 @@ class Node:
                 delattr(self, cache)
             except:
                 continue
+
+    def derive_samples(self,samples):
+
+        if self.local_samples is not None:
+            copy = deepcopy(self)
+            restricted = [s for s in copy.local_samples if s in samples]
+            copy.local_samples = restricted
+            return copy
+
+        child_copies = []
+
+        for child in self.children:
+            child_copies.append(child.derive_samples(samples))
+
+        if len(child_copies[0].samples()) < 1 or len(child_copies[1].samples()) < 1:
+            copy = deepcopy(self)
+            copy.children = []
+            copy.local_samples = self.samples()
+            return copy
+        else:
+            copy = deepcopy(self)
+            copy.children = child_copies
+            return copy
+
+
+
+
 
     # def lr_encoding_vectors(self):
     #     left = np.zeros(len(self.forest.samples),dtype=bool)
