@@ -2,7 +2,7 @@ from tree_reader_node import Node
 
 import matplotlib.pyplot as plt
 import matplotlib as mpl
-from copy import deepcopy
+from copy import copy,deepcopy
 
 mpl.rcParams['figure.dpi'] = 100
 
@@ -51,8 +51,17 @@ class Tree:
 
     def derive_samples(self,samples):
         root_copy = self.root.derive_samples(samples)
-        self_copy = deepcopy(self)
+        self_copy = self.derived_copy()
         self_copy.root = root_copy
+        for node in self_copy.root.nodes():
+            node.tree = self_copy
+        self_copy.root.tree = self_copy
+        return self_copy
+
+    def derived_copy(self):
+        self_copy = copy(self)
+        self_copy.root = None
+        self_copy.forest = None
         return self_copy
 
     def feature_levels(self):

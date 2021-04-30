@@ -70,6 +70,8 @@ class Forest:
         for i, node in enumerate(self.nodes()):
             node.index = i
 
+        if split_labels is not None:
+            self.external_split_labels(self.nodes(),split_labels,roots=True)
 
 ########################################################################
 ########################################################################
@@ -121,6 +123,13 @@ class Forest:
         nodes = self.nodes()
         for i,node in enumerate(nodes):
             node.index = i
+
+    def reindex_samples(self,samples):
+        map = {s:i for i,s in list(enumerate(samples))}
+        for node in self.nodes():
+            if node.local_samples is not None:
+                new_samples = [map[s] for s in node.local_samples]
+                node.local_samples = new_samples
 
     def leaves(self, depth=None):
         leaves = []
@@ -475,14 +484,27 @@ class Forest:
 
         new_forest = Forest(
             new_trees,
-            deepcopy(self.input[samples]),
-            deepcopy(self.output[samples]),
-            input_features = deepcopy(self.input_features),
-            output_featues = deepcopy(self.output_featues),
-            samples=deepcopy(self.samples[samples]),
-            split_labels=deepcopy(self.split_labels),
+            copy.deepcopy(self.input[samples]),
+            copy.deepcopy(self.output[samples]),
+            input_features = copy.deepcopy(self.input_features),
+            output_features = copy.deepcopy(self.output_features),
+            samples=list(np.array(self.samples)[samples]),
+            split_labels=None,
             cache=self.cache
         )
+
+        for tree in new_forest.trees:
+            tree.forest = new_forest
+
+        for node in new_forest.nodes():
+            node.forest = new_forest
+
+        split_labels = [n.split_cluster for n in new_forest.nodes()]
+        new_forest.external_split_labels(new_forest.nodes(),split_labels,roots=True)
+
+        new_forest.reindex_samples(samples)
+
+        new_forest.reset_cache()
 
         return new_forest
 
