@@ -520,7 +520,7 @@ class NodeCluster:
         return jsn_dumps(attributes)
 
     def top_local_table(self,n):
-        changed_vs_sister, fold_vs_sister = self.changed_absolute_sister()
+        # changed_vs_sister, fold_vs_sister = self.changed_absolute_sister()
         important_features, important_folds, important_indices = self.important_features(n)
 
         selected_local = self.local_correlations(indices=important_indices)
@@ -748,6 +748,19 @@ class NodeCluster:
                     :, 0], self.forest.coordinates(no_plot=True)[:, 1], c=counts, **kwargs)
         plt.colorbar()
         plt.show()
+
+    def plot_sister_scores(self,**kwargs):
+        sister_scores = self.sister_scores()
+        fig = plt.figure()
+        plt.title(
+            f"Distribution of Samples \nIn {self.name()} (Red) vs Its Sisters (Blue)")
+        plt.scatter(forest_coordinates[:, 0], forest_coordinates[:, 1], s=1,
+                    alpha=.6, c=sister_scores, norm=DivergingNorm(0), cmap='bwr')
+        plt.colorbar(label="Sister Score (Difference in Probability)")
+        plt.ylabel("tSNE Coordinates (AU)")
+        plt.xlabel("tSNE Coordinates (AU)")
+        plt.savefig(location + "sister_map.png",dpi=DPI_SET)
+        return fig
 
     def probability_enrichment(self):
         enrichment = self.forest.probability_enrichment()
