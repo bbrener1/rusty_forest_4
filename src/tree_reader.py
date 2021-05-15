@@ -873,6 +873,10 @@ class Forest:
             sister_representation = self.node_representation(
                 [n.sister() for n in nodes[stem_mask]], mode=mode, pca=pca)
 
+            print("Representations:")
+            print(own_representation.shape)
+            print(sister_representation.shape)
+
             print("Running double knn")
             knn = double_fast_knn(own_representation,
                                   sister_representation, k=k, metric=metric, **kwargs)
@@ -1554,18 +1558,21 @@ class Forest:
         elif mode == "means":
             mean_matrix = self.split_cluster_mean_matrix()
             domain_matrix = self.split_cluster_domain_mean_matrix()
-            print(mean_matrix)
-            print(domain_matrix)
             distances = 1. - cdist(mean_matrix, domain_matrix, metric="cosine")
-            print(distances)
-            print(distances.shape)
             # distances = squareform(1. - pdist(mean_matrix,domain_matrix,metric="cosine"))
         elif mode == "samples":
             cluster_values = np.array([c.sample_scores()
                                        for c in self.split_clusters])
             parent_values = np.array([c.parent_scores() for c in self.split_clusters])
-            print(parent_values.shape)
-            distances = 1. - cdist(parent_values,cluster_values,metric='cosine')
+
+
+            normed_cv = cluster_values / np.sum(cluster_values,axis=0)
+            normed_pv = parent_values / np.sum(parent_values,axis=0)
+            distances = 1. - cdist(normed_cv,normed_pv,metric='cosine')
+
+            # distances = (distances + distances.T)/2
+
+            # distances = 1. - cdist(parent_values,cluster_values,metric='cosine')
             # distances = 1. - cdist(cluster_values,sister_values,metric='cosine')
             # distances = squareform(1. - pdist(cluster_values, metric="cosine"))
         else:
