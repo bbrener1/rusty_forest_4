@@ -1561,16 +1561,16 @@ class Forest:
             distances = 1. - cdist(mean_matrix, domain_matrix, metric="cosine")
             # distances = squareform(1. - pdist(mean_matrix,domain_matrix,metric="cosine"))
         elif mode == "samples":
-            cluster_values = np.array([c.sample_scores()
+            # cluster_values = np.array([c.sample_scores()
+            #                            for c in self.split_clusters])
+            # parent_values = np.array([c.parent_scores() for c in self.split_clusters])
+            cluster_values = np.array([np.abs(c.sister_scores())
                                        for c in self.split_clusters])
             parent_values = np.array([c.parent_scores() for c in self.split_clusters])
-
 
             normed_cv = cluster_values / np.sum(cluster_values,axis=0)
             normed_pv = parent_values / np.sum(parent_values,axis=0)
             distances = 1. - cdist(normed_cv,normed_pv,metric='cosine')
-
-            # distances = (distances + distances.T)/2
 
             # distances = 1. - cdist(parent_values,cluster_values,metric='cosine')
             # distances = 1. - cdist(cluster_values,sister_values,metric='cosine')
