@@ -157,8 +157,9 @@ class Forest:
     def trim(self,limit):
 
         for i,tree in enumerate(self.trees):
-            print(f"Trimming {i}")
+            print(f"Trimming {i}\r",end='')
             tree.trim(limit)
+        print("")
 
         self.reindex_nodes()
         self.reset_cache()
@@ -217,6 +218,8 @@ class Forest:
         elif mode == 'factor':
             print("Factor matrix")
             encoding = self.node_factor_encoding(nodes)
+        elif mode == 'partial':
+            encoding = self.partial_matrix(nodes)
         else:
             raise Exception(f"Mode not recognized:{mode}")
 
@@ -345,6 +348,15 @@ class Forest:
         for i, node in enumerate(nodes):
             weights[i] = node.weights
         return weights
+
+    def partial_matrix(self,nodes):
+        partials = np.zeros((len(nodes),len(self.output_features)))
+        for i, node in enumerate(nodes):
+            if i%1000 == 0:
+                print(f"Node {i}\r",end='')
+            partials[i] = node.partials()
+        print("")
+        return partials
 
     def weighted_prediction_matrix(self, nodes):
         weighted_predictions = np.zeros(
@@ -1561,12 +1573,12 @@ class Forest:
             distances = 1. - cdist(mean_matrix, domain_matrix, metric="cosine")
             # distances = squareform(1. - pdist(mean_matrix,domain_matrix,metric="cosine"))
         elif mode == "samples":
-            # cluster_values = np.array([c.sample_scores()
-            #                            for c in self.split_clusters])
-            # parent_values = np.array([c.parent_scores() for c in self.split_clusters])
-            cluster_values = np.array([np.abs(c.sister_scores())
+            cluster_values = np.array([c.sample_scores()
                                        for c in self.split_clusters])
             parent_values = np.array([c.parent_scores() for c in self.split_clusters])
+            # cluster_values = np.array([np.abs(c.sister_scores())
+            #                            for c in self.split_clusters])
+            # parent_values = np.array([c.parent_scores() for c in self.split_clusters])
 
             normed_cv = cluster_values / np.sum(cluster_values,axis=0)
             normed_pv = parent_values / np.sum(parent_values,axis=0)

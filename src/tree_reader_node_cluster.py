@@ -3,6 +3,9 @@ import os
 
 import numpy as np
 
+from matplotlib.colors import DivergingNorm
+
+
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
@@ -677,8 +680,6 @@ class NodeCluster:
 
     def html_sister_scores(self, output=None):
 
-        from matplotlib.colors import DivergingNorm
-
         if output is None:
             location = self.html_directory()
         else:
@@ -751,6 +752,7 @@ class NodeCluster:
 
     def plot_sister_scores(self,**kwargs):
         sister_scores = self.sister_scores()
+        forest_coordinates = self.forest.coordinates(no_plot=True)
         fig = plt.figure()
         plt.title(
             f"Distribution of Samples \nIn {self.name()} (Red) vs Its Sisters (Blue)")
@@ -759,7 +761,6 @@ class NodeCluster:
         plt.colorbar(label="Sister Score (Difference in Probability)")
         plt.ylabel("tSNE Coordinates (AU)")
         plt.xlabel("tSNE Coordinates (AU)")
-        plt.savefig(location + "sister_map.png",dpi=DPI_SET)
         return fig
 
     def probability_enrichment(self):

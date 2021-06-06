@@ -182,6 +182,35 @@ class Node:
 
         return residuals
 
+    def partials(self):
+        if len(self.children) > 1:
+            c1 = self.children[0]
+            c2 = self.children[1]
+
+            c1ss = np.power(self.means() - c1.means(),2) * len(c1.samples())
+            c2ss = np.power(self.means() - c2.means(),2) * len(c2.samples())
+            rss = np.sum(np.power(self.mean_residuals(),2),axis=0)
+            ratios = (c1ss + c2ss) / rss
+            ratios[rss == 0] = 0
+            additive = self.additive_mean_gains()
+            partials = additive * ratios
+
+            # c1ss = np.power(self.means() - c1.means(),2) * len(c1.samples())
+            # c2ss = np.power(self.means() - c2.means(),2) * len(c2.samples())
+            # c1rs = np.sum(np.power(c1.mean_residuals(),2),axis=0)
+            # c2rs = np.sum(np.power(c2.mean_residuals(),2),axis=0)
+            #
+            # ratios = (c1ss + c2ss) / (c1rs + c1rs + c1ss + c2ss)
+            #
+            # additive = self.additive_mean_gains()
+            #
+            # partials = additive * ratios
+
+            return partials
+        else:
+            return self.additive_mean_gains()
+
+
     def mean_residual_doublet(self):
         counts = self.node_counts()
         self_means = self.means()
